@@ -39,16 +39,14 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo + brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-jadwa-green rounded-xl flex items-center justify-center mb-3 shadow-sm">
-            <span className="text-white text-xl font-bold">J</span>
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Jadwa Investment</h1>
-          <p className="text-sm text-gray-500 mt-1">Account Assistant Portal</p>
+          <img src="/dt-logo.png" alt="DigiTrends" className="h-12 mb-3" />
+          <h1 className="text-2xl font-bold text-gray-900">DT Voice</h1>
+          <p className="text-sm text-gray-500 mt-1">AI Voice Assistant Portal</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="text-base font-semibold text-gray-900 mb-6">Sign in to continue</h2>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+          <h2 className="text-base font-semibold text-gray-800 mb-6">Sign in to continue</h2>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div>
@@ -60,8 +58,8 @@ export default function LoginPage() {
                 required
                 autoComplete="username"
                 placeholder="Enter username"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900
-                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-jadwa-green focus:border-transparent
+                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-gray-900
+                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-dt-red focus:border-transparent
                   transition-all"
               />
             </div>
@@ -75,8 +73,8 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
                 placeholder="Enter password"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900
-                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-jadwa-green focus:border-transparent
+                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-gray-900
+                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-dt-red focus:border-transparent
                   transition-all"
               />
             </div>
@@ -90,8 +88,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-jadwa-green text-white font-semibold text-sm
-                hover:bg-jadwa-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-1"
+              className="w-full py-3 rounded-xl bg-dt-red text-white font-semibold text-sm
+                hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed mt-1"
             >
               {loading ? "Signing in…" : "Sign In"}
             </button>
@@ -99,7 +97,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Jadwa Investment · Authorized Personnel Only
+          DT Voice · Authorized Personnel Only
         </p>
       </div>
     </div>

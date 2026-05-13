@@ -5,9 +5,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        jadwa: {
-          green: "#006341",
-          light: "#007a50",
+        dt: {
+          red: "#ed1c24",
+          dark: "#0e0e0e",
         },
         danger: "#dc2626",
       },

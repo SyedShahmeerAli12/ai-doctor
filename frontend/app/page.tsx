@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Avatar from "./components/Avatar";
-import Transcript, { type TranscriptItem } from "./components/Transcript";
 import { useAnam } from "./hooks/useAnam";
 import { useRealtimeRelay } from "./hooks/useRealtimeRelay";
 
@@ -33,16 +32,10 @@ export default function Page() {
   const router = useRouter();
   const [authed,       setAuthed]       = useState(false);
   const [screen,       setScreen]       = useState<Screen>("consultation");
-  const [transcript,   setTranscript]   = useState<TranscriptItem[]>([]);
   const [sessionState, setSessionState] = useState<"idle" | "connecting" | "active">("idle");
 
   const anam  = useAnam();
   const relay = useRealtimeRelay();
-
-  const addTranscript = useCallback((role: "user" | "assistant", text: string) => {
-    const item: TranscriptItem = { ts: Date.now(), role, text };
-    setTranscript((prev) => [...prev, item]);
-  }, []);
 
   const audioCtxRef  = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -111,12 +104,12 @@ export default function Page() {
     setSessionState("connecting");
     relay.connect(
       () => {},
-      addTranscript,
+      () => {},
       () => anam.clearBuffer(),
       () => anam.streamText("", true),
       (delta) => anam.streamText(delta, false),
     );
-  }, [relay, anam, addTranscript]);
+  }, [relay, anam]);
 
   const handleDone = useCallback(() => {
     stopMic();
@@ -127,7 +120,6 @@ export default function Page() {
   }, [relay, anam]);
 
   const handleRestart = useCallback(() => {
-    setTranscript([]);
     setScreen("consultation");
     setSessionState("idle");
   }, []);
@@ -145,22 +137,18 @@ export default function Page() {
     return (
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
         <div className="max-w-2xl mx-auto">
-          {/* Header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-jadwa-green rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-bold">J</span>
-            </div>
+            <img src="/dt-logo.png" alt="DigiTrends" className="h-8 flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wider leading-none mb-0.5">Session Complete</p>
               <h2 className="text-lg font-bold text-gray-900 leading-none">Frequently Asked Questions</h2>
             </div>
           </div>
 
-          {/* FAQ grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             {FAQS.map((faq, i) => (
               <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                <p className="text-sm font-semibold text-jadwa-green mb-1.5">{faq.q}</p>
+                <p className="text-sm font-semibold text-dt-red mb-1.5">{faq.q}</p>
                 <p className="text-sm text-gray-600 leading-relaxed">{faq.a}</p>
               </div>
             ))}
@@ -168,7 +156,7 @@ export default function Page() {
 
           <button
             onClick={handleRestart}
-            className="w-full py-3.5 rounded-xl bg-jadwa-green text-white font-semibold text-sm hover:bg-jadwa-light transition-colors"
+            className="w-full py-3.5 rounded-xl bg-dt-red text-white font-semibold text-sm hover:opacity-90 transition-colors"
           >
             Start New Session
           </button>
@@ -177,63 +165,39 @@ export default function Page() {
     );
   }
 
-  // ── Consultation screen ───────────────────────────────────────────────────
+  // ── Consultation screen — full page avatar ────────────────────────────────
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center px-4 sm:px-5 py-3 border-b border-gray-200 bg-white flex-shrink-0">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-jadwa-green rounded-lg flex items-center justify-center">
-            <span className="text-white text-xs font-bold">J</span>
-          </div>
-          <span className="font-bold text-gray-900 text-sm">Jadwa Investment</span>
-          <span className="text-gray-300 hidden sm:inline">·</span>
-          <span className="text-gray-500 text-sm hidden sm:inline">Account Assistant</span>
-        </div>
+    <div className="flex flex-col bg-gray-950 overflow-hidden" style={{ height: "100dvh" }}>
+      {/* Avatar fills all space */}
+      <div className="flex-1 min-h-0 relative">
+        <Avatar
+          videoRef={anam.videoRef}
+          isSpeaking={anam.isSpeaking}
+          isConnected={anam.isConnected}
+          isConnecting={isConnecting}
+        />
       </div>
 
-      {/* Main — stacks vertically on mobile, side-by-side on md+ */}
-      <div className="flex flex-col md:flex-row flex-1 min-h-0">
-
-        {/* Avatar — top on mobile, left on desktop */}
-        <div className="w-full h-[50vh] sm:h-[55vh] md:h-auto md:w-[40%] md:flex-shrink-0 md:border-r border-b md:border-b-0 border-gray-200">
-          <Avatar
-            videoRef={anam.videoRef}
-            isSpeaking={anam.isSpeaking}
-            isConnected={anam.isConnected}
-            isConnecting={isConnecting}
-          />
-        </div>
-
-        {/* Transcript + controls */}
-        <div className="flex-1 flex flex-col p-4 sm:p-5 gap-3 sm:gap-4 min-h-0 overflow-hidden">
-          <div className="flex-1 min-h-0">
-            <Transcript
-              items={transcript}
-              isMicActive={isActive && !anam.isSpeaking}
-            />
-          </div>
-          <div className="flex-shrink-0">
-            {(isIdle || isConnecting) && (
-              <button
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="w-full py-3.5 rounded-xl bg-jadwa-green text-white font-semibold text-sm
-                  hover:bg-jadwa-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isConnecting ? "Connecting…" : "Start Consultation"}
-              </button>
-            )}
-            {isActive && (
-              <button
-                onClick={handleDone}
-                className="w-full py-3.5 rounded-xl bg-danger text-white font-semibold text-sm hover:opacity-90 transition-opacity"
-              >
-                Done
-              </button>
-            )}
-          </div>
-        </div>
+      {/* Bottom controls */}
+      <div className="flex-shrink-0 px-4 py-4 sm:px-6 sm:py-5 bg-gray-900 border-t border-gray-800" style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
+        {(isIdle || isConnecting) && (
+          <button
+            onClick={handleConnect}
+            disabled={isConnecting}
+            className="w-full py-3.5 rounded-xl bg-dt-red text-white font-semibold text-sm
+              hover:opacity-90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isConnecting ? "Connecting…" : "Start Consultation"}
+          </button>
+        )}
+        {isActive && (
+          <button
+            onClick={handleDone}
+            className="w-full py-3.5 rounded-xl bg-danger text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+          >
+            Done
+          </button>
+        )}
       </div>
     </div>
   );
