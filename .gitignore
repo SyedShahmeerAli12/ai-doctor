@@ -1,0 +1,19 @@
+# Environment files — never commit API keys
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+out/
+
+# Docker volumes
+*.log

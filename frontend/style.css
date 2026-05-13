@@ -1,0 +1,241 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green:      #006341;
+  --green-light:#007a50;
+  --gold:       #c8a84b;
+  --danger:     #dc2626;
+  --gray-50:    #f9fafb;
+  --gray-100:   #f3f4f6;
+  --gray-200:   #e5e7eb;
+  --gray-400:   #9ca3af;
+  --gray-500:   #6b7280;
+  --gray-800:   #1f2937;
+  --gray-900:   #111827;
+  --gray-950:   #030712;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--gray-50);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--gray-800);
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: white;
+  border-bottom: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+
+.logo { display: flex; align-items: center; gap: 10px; }
+
+.logo-mark {
+  width: 36px; height: 36px;
+  background: var(--green);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 800; font-size: 16px;
+}
+
+.logo-name {
+  display: block;
+  font-weight: 700; font-size: 14px; color: var(--gray-900);
+}
+.logo-sub {
+  display: block;
+  font-size: 11px; color: var(--gray-400);
+}
+
+.badge {
+  font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 20px;
+}
+.badge-idle       { background: var(--gray-100); color: var(--gray-500); }
+.badge-connecting { background: #fef3c7; color: #92400e; }
+.badge-active     { background: #dcfce7; color: #166534; }
+
+/* ── Main layout ─────────────────────────────────────────── */
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Avatar panel (40%) ──────────────────────────────────── */
+.avatar-panel {
+  width: 40%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--gray-950);
+  border-right: 1px solid #1f2937;
+}
+
+.avatar-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+#avatar-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.idle-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--gray-950);
+}
+
+.avatar-placeholder {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  background: #1f2937;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 700; color: white;
+  margin-bottom: 12px;
+}
+
+.idle-overlay p {
+  color: var(--gray-400); font-size: 13px;
+}
+
+.avatar-info {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+}
+
+.dot {
+  width: 10px; height: 10px;
+  border-radius: 50%; flex-shrink: 0;
+}
+.dot-idle     { background: var(--gray-500); }
+.dot-speaking { background: var(--gold); animation: pulse 1s infinite; }
+.dot-listening{ background: #22c55e; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.avatar-name  { color: white; font-weight: 600; font-size: 13px; }
+.avatar-role  { color: var(--gray-400); font-size: 11px; }
+
+/* ── Right panel (60%) ───────────────────────────────────── */
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.transcript-box {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.transcript-empty {
+  color: var(--gray-400);
+  font-size: 13px;
+  text-align: center;
+  padding-top: 40px;
+}
+
+.msg {
+  display: flex;
+  gap: 8px;
+  animation: fadeIn 0.2s ease;
+}
+.msg-user      { justify-content: flex-end; }
+.msg-assistant { justify-content: flex-start; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+.msg-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0; margin-top: 2px;
+}
+.msg-avatar-sara { background: var(--gray-200); color: var(--gray-800); }
+.msg-avatar-user { background: var(--green); color: white; }
+
+.msg-bubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.bubble-user      { background: var(--green); color: white; border-bottom-right-radius: 4px; }
+.bubble-assistant { background: var(--gray-100); color: var(--gray-800); border-bottom-left-radius: 4px; }
+
+/* ── Controls ─────────────────────────────────────────────── */
+.controls { flex-shrink: 0; }
+
+.btn {
+  width: 100%; padding: 13px;
+  border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: var(--green); color: white; }
+.btn-primary:hover:not(:disabled) { background: var(--green-light); }
+
+.btn-danger  { background: var(--danger); color: white; }
+.btn-danger:hover:not(:disabled)  { opacity: 0.88; }
+
+/* ── Summary modal ───────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal {
+  background: white;
+  border-radius: 20px;
+  padding: 28px;
+  width: 100%; max-width: 480px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.modal-header { }
+.modal-label  { font-size: 11px; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.modal-title  { font-size: 20px; font-weight: 700; color: var(--gray-900); }
+
+.summary-content {
+  font-size: 13px; color: var(--gray-800);
+  line-height: 1.7;
+  white-space: pre-line;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-height: 80px;
+}

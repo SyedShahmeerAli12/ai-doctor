@@ -1,0 +1,109 @@
+"use client";
+import { useCallback, useRef, useState } from "react";
+
+type MessageHandler = (role: "user" | "assistant", text: string) => void;
+type AudioHandler   = (pcm16: Int16Array) => void;
+
+interface UseRealtimeRelayReturn {
+  isConnected: boolean;
+  connect: (onAudio: AudioHandler, onTranscript: MessageHandler, onInterrupt: () => void, onSpeechEnd?: () => void, onTranscriptDelta?: (delta: string) => void) => void;
+  sendAudio: (pcm16: Int16Array) => void;
+  disconnect: () => void;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize)
+    binary += String.fromCharCode(...Array.from(bytes.subarray(i, i + chunkSize)));
+  return btoa(binary);
+}
+
+function base64ToInt16Array(b64: string): Int16Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Int16Array(bytes.buffer);
+}
+
+export function useRealtimeRelay(): UseRealtimeRelayReturn {
+  const wsRef             = useRef<WebSocket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const onAudioRef        = useRef<AudioHandler | null>(null);
+  const onTranscriptRef   = useRef<MessageHandler | null>(null);
+  const onInterruptRef    = useRef<(() => void) | null>(null);
+  const onSpeechEndRef        = useRef<(() => void) | null>(null);
+  const onTranscriptDeltaRef  = useRef<((d: string) => void) | null>(null);
+  const assistantBufRef       = useRef("");
+
+  const connect = useCallback((
+    onAudio: AudioHandler,
+    onTranscript: MessageHandler,
+    onInterrupt: () => void,
+    onSpeechEnd?: () => void,
+    onTranscriptDelta?: (delta: string) => void,
+  ) => {
+    onAudioRef.current      = onAudio;
+    onTranscriptRef.current = onTranscript;
+    onInterruptRef.current  = onInterrupt;
+    onSpeechEndRef.current         = onSpeechEnd ?? null;
+    onTranscriptDeltaRef.current   = onTranscriptDelta ?? null;
+
+    const base   = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+    const wsBase = base
+      ? base.replace(/^http/, "ws")
+      : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+    const ws = new WebSocket(`${wsBase}/api/session/relay`);
+
+    ws.onopen  = () => setIsConnected(true);
+    ws.onclose = () => setIsConnected(false);
+    ws.onerror = (e) => console.error("[relay] ws error", e);
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === "response.audio.delta" && msg.delta)
+          onAudioRef.current?.(base64ToInt16Array(msg.delta));
+
+        if (msg.type === "input_audio_buffer.speech_started")
+          onInterruptRef.current?.();
+
+        if (msg.type === "response.audio_transcript.delta" && msg.delta) {
+          assistantBufRef.current += msg.delta;
+          onTranscriptDeltaRef.current?.(msg.delta);
+        }
+
+        if (msg.type === "response.audio_transcript.done") {
+          if (assistantBufRef.current.trim())
+            onTranscriptRef.current?.("assistant", assistantBufRef.current.trim());
+          assistantBufRef.current = "";
+          onSpeechEndRef.current?.();
+        }
+
+        if (msg.type === "conversation.item.input_audio_transcription.completed" && msg.transcript?.trim())
+          onTranscriptRef.current?.("user", msg.transcript.trim());
+
+      } catch {}
+    };
+
+    wsRef.current = ws;
+  }, []);
+
+  const sendAudio = useCallback((pcm16: Int16Array) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({
+      type: "input_audio_buffer.append",
+      audio: arrayBufferToBase64(pcm16.buffer as ArrayBuffer),
+    }));
+  }, []);
+
+  const disconnect = useCallback(() => {
+    wsRef.current?.close();
+    wsRef.current = null;
+    setIsConnected(false);
+  }, []);
+
+  return { isConnected, connect, sendAudio, disconnect };
+}
