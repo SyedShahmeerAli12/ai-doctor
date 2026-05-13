@@ -196,7 +196,7 @@ export default function Page() {
       <div className="flex flex-col md:flex-row flex-1 min-h-0">
 
         {/* Avatar — top on mobile, left on desktop */}
-        <div className="w-full h-56 sm:h-72 md:h-auto md:w-[40%] md:flex-shrink-0 md:border-r border-b md:border-b-0 border-gray-200">
+        <div className="w-full h-[50vh] sm:h-[55vh] md:h-auto md:w-[40%] md:flex-shrink-0 md:border-r border-b md:border-b-0 border-gray-200">
           <Avatar
             videoRef={anam.videoRef}
             isSpeaking={anam.isSpeaking}
