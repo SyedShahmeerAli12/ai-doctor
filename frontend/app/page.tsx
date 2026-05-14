@@ -5,7 +5,9 @@ import Avatar from "./components/Avatar";
 import { useAnam } from "./hooks/useAnam";
 import { useRealtimeRelay } from "./hooks/useRealtimeRelay";
 
-type Screen = "consultation" | "summary";
+type Screen = "consultation" | "summary" | "faq";
+
+interface Message { role: "user" | "assistant"; text: string; }
 
 const FAQS = [
   { q: "How can I open an investment account?", a: "Open digitally through our onboarding portal using your Saudi National ID or Iqama, mobile number, and email. KYC verification takes only a few minutes." },
@@ -33,6 +35,10 @@ export default function Page() {
   const [authed,       setAuthed]       = useState(false);
   const [screen,       setScreen]       = useState<Screen>("consultation");
   const [sessionState, setSessionState] = useState<"idle" | "connecting" | "active">("idle");
+  const [transcript,   setTranscript]   = useState<Message[]>([]);
+  const [summary,      setSummary]      = useState("");
+  const [topics,       setTopics]       = useState<string[]>([]);
+  const [summarizing,  setSummarizing]  = useState(false);
 
   const anam  = useAnam();
   const relay = useRealtimeRelay();
@@ -40,6 +46,10 @@ export default function Page() {
   const audioCtxRef  = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef    = useRef<MediaStream | null>(null);
+
+  const addTranscript = useCallback((role: "user" | "assistant", text: string) => {
+    setTranscript((prev) => [...prev, { role, text }]);
+  }, []);
 
   // Auth check
   useEffect(() => {
@@ -51,7 +61,6 @@ export default function Page() {
       .catch(() => router.push("/login"));
   }, []);
 
-  // Close session on tab/browser close
   useEffect(() => {
     const handleBeforeUnload = () => { anam.stopAnam(); };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -104,22 +113,43 @@ export default function Page() {
     setSessionState("connecting");
     relay.connect(
       () => {},
-      () => {},
+      addTranscript,
       () => anam.clearBuffer(),
       () => anam.streamText("", true),
       (delta) => anam.streamText(delta, false),
     );
-  }, [relay, anam]);
+  }, [relay, anam, addTranscript]);
 
-  const handleDone = useCallback(() => {
+  const handleDone = useCallback(async () => {
     stopMic();
     relay.disconnect();
     anam.stopAnam();
     setSessionState("idle");
     setScreen("summary");
-  }, [relay, anam]);
+    setSummarizing(true);
+    setSummary("");
+    try {
+      const base = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+      const res = await fetch(`${base}/api/session/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: transcript }),
+      });
+      const data = await res.json();
+      setSummary(data.summary || "Session complete.");
+      setTopics(data.topics || []);
+    } catch {
+      setSummary("Session complete. Thank you for consulting with Sara.");
+      setTopics([]);
+    } finally {
+      setSummarizing(false);
+    }
+  }, [relay, anam, transcript]);
 
   const handleRestart = useCallback(() => {
+    setTranscript([]);
+    setSummary("");
+    setTopics([]);
     setScreen("consultation");
     setSessionState("idle");
   }, []);
@@ -132,15 +162,20 @@ export default function Page() {
   const isConnecting = sessionState === "connecting";
   const isActive     = sessionState === "active";
 
-  // ── Summary / FAQ screen ──────────────────────────────────────────────────
-  if (screen === "summary") {
+  // ── FAQ screen ────────────────────────────────────────────────────────────
+  if (screen === "faq") {
     return (
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
+            <button onClick={() => setScreen("summary")} className="text-gray-400 hover:text-gray-600 transition-colors mr-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
             <img src="/dt-logo.png" alt="DigiTrends" className="h-8 flex-shrink-0" />
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider leading-none mb-0.5">Session Complete</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wider leading-none mb-0.5">Knowledge Base</p>
               <h2 className="text-lg font-bold text-gray-900 leading-none">Frequently Asked Questions</h2>
             </div>
           </div>
@@ -165,10 +200,87 @@ export default function Page() {
     );
   }
 
+  // ── Summary screen ────────────────────────────────────────────────────────
+  if (screen === "summary") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col p-4 sm:p-6">
+        <div className="max-w-lg mx-auto w-full flex flex-col flex-1">
+
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <img src="/dt-logo.png" alt="DigiTrends" className="h-8 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wider leading-none mb-0.5">Session Complete</p>
+              <h2 className="text-lg font-bold text-gray-900 leading-none">Consultation Summary</h2>
+            </div>
+          </div>
+
+          {/* Sara card */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-4">
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+              <div className="w-10 h-10 rounded-full bg-dt-red flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-sm">S</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Sara</p>
+                <p className="text-xs text-gray-400">DT Voice Assistant</p>
+              </div>
+              <div className="ml-auto">
+                <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">Session Ended</span>
+              </div>
+            </div>
+
+            {summarizing ? (
+              <div className="flex items-center gap-2 text-gray-400 py-2">
+                <svg className="animate-spin h-4 w-4 text-dt-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-sm text-gray-500">Generating your summary…</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-700 leading-relaxed mb-4">{summary}</p>
+
+                {topics.length > 0 && (
+                  <>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Topics Covered</p>
+                    <div className="flex flex-wrap gap-2">
+                      {topics.map((t, i) => (
+                        <span key={i} className="text-xs px-3 py-1.5 rounded-full bg-red-50 text-dt-red font-medium border border-red-100">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-3 mt-auto">
+            <button
+              onClick={() => setScreen("faq")}
+              className="w-full py-3.5 rounded-xl border-2 border-dt-red text-dt-red font-semibold text-sm hover:bg-red-50 transition-colors"
+            >
+              FAQs
+            </button>
+            <button
+              onClick={handleRestart}
+              className="w-full py-3.5 rounded-xl bg-dt-red text-white font-semibold text-sm hover:opacity-90 transition-colors"
+            >
+              Start New Session
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Consultation screen — full page avatar ────────────────────────────────
   return (
     <div className="flex flex-col bg-gray-950 overflow-hidden" style={{ height: "100dvh" }}>
-      {/* Avatar fills all space */}
       <div className="flex-1 min-h-0 relative">
         <Avatar
           videoRef={anam.videoRef}
@@ -178,8 +290,10 @@ export default function Page() {
         />
       </div>
 
-      {/* Bottom controls */}
-      <div className="flex-shrink-0 px-4 py-4 sm:px-6 sm:py-5 bg-gray-900 border-t border-gray-800" style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
+      <div
+        className="flex-shrink-0 px-4 py-4 sm:px-6 sm:py-5 bg-gray-900 border-t border-gray-800"
+        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
+      >
         {(isIdle || isConnecting) && (
           <button
             onClick={handleConnect}
