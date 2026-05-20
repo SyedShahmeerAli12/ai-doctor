@@ -13,7 +13,13 @@ async def get_anam_token():
         res = await client.post(
             "https://api.anam.ai/v1/auth/session-token",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"personaId": persona_id},
+            json={"personaConfig": {
+                "name": "Ayesha",
+                "avatarId": persona_id,
+                "voiceId": os.getenv("ANAM_VOICE_ID"),
+                "llmId": "a7cf662c-2ace-4de1-a21e-ef0fbf144bb7",
+                "systemPrompt": "You are Ayesha Khan, a 28-year-old patient visiting a doctor. Wait for the doctor to speak first.",
+            }},
         )
         if not res.is_success:
             raise HTTPException(status_code=502, detail=f"Anam token error: {res.text}")
