@@ -25,3 +25,4 @@ async def get_anam_token():
             raise HTTPException(status_code=502, detail=f"Anam token error: {res.text}")
 
     return res.json()
+    
