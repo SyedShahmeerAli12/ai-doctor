@@ -162,6 +162,9 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = JADWA_PROMPT):
                             gap = now - t_speech_stopped[0] if t_speech_stopped[0] else 0
                             print(f"[latency] response.created (+{gap*1000:.0f}ms)", flush=True)
 
+                        if msg_type not in ("response.audio.delta", "input_audio_buffer.append"):
+                            print(f"[openai→client] {msg_type}", flush=True)
+
                         if msg_type == "response.audio.delta":
                             suppress_until[0] = asyncio.get_event_loop().time() + OUTPUT_TAIL_S
 
