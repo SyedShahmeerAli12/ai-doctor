@@ -112,7 +112,8 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = JADWA_PROMPT):
                     "instructions": prompt,
                     "voice": os.getenv("OPENAI_VOICE", "shimmer"),
                     "turn_detection": {
-                        "type": "server_vad",
+                        "type": "semantic_vad",
+                        "eagerness": "medium",
                     },
                     "input_audio_transcription": {"model": "whisper-1"},
                     "input_audio_format": "pcm16",
