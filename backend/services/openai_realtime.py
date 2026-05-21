@@ -165,10 +165,10 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = JADWA_PROMPT):
                         if msg_type not in ("response.audio.delta", "input_audio_buffer.append"):
                             print(f"[openai→client] {msg_type}", flush=True)
 
-                        if msg_type == "response.audio.delta":
+                        if msg_type in ("response.audio.delta", "response.output_audio.delta"):
                             suppress_until[0] = asyncio.get_event_loop().time() + OUTPUT_TAIL_S
 
-                        elif msg_type == "response.audio_transcript.done":
+                        elif msg_type in ("response.audio_transcript.done", "response.output_audio_transcript.done"):
                             original = msg.get("transcript", "")
                             if original:
                                 msg["transcript"] = await _to_english(original, api_key)

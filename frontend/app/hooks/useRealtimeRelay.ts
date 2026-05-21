@@ -64,18 +64,18 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
       try {
         const msg = JSON.parse(event.data);
 
-        if (msg.type === "response.audio.delta" && msg.delta)
+        if ((msg.type === "response.audio.delta" || msg.type === "response.output_audio.delta") && msg.delta)
           onAudioRef.current?.(base64ToInt16Array(msg.delta));
 
         if (msg.type === "input_audio_buffer.speech_started")
           onInterruptRef.current?.();
 
-        if (msg.type === "response.audio_transcript.delta" && msg.delta) {
+        if ((msg.type === "response.audio_transcript.delta" || msg.type === "response.output_audio_transcript.delta") && msg.delta) {
           assistantBufRef.current += msg.delta;
           onTranscriptDeltaRef.current?.(msg.delta);
         }
 
-        if (msg.type === "response.audio_transcript.done") {
+        if (msg.type === "response.audio_transcript.done" || msg.type === "response.output_audio_transcript.done") {
           if (assistantBufRef.current.trim())
             onTranscriptRef.current?.("assistant", assistantBufRef.current.trim());
           assistantBufRef.current = "";
