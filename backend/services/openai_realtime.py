@@ -101,7 +101,6 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = JADWA_PROMPT):
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "OpenAI-Beta": "realtime=v1",
     }
 
     try:
