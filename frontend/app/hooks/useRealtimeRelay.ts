@@ -30,6 +30,7 @@ function base64ToInt16Array(b64: string): Int16Array {
 
 export function useRealtimeRelay(): UseRealtimeRelayReturn {
   const wsRef             = useRef<WebSocket | null>(null);
+  const audioSentRef      = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const onAudioRef        = useRef<AudioHandler | null>(null);
   const onTranscriptRef   = useRef<MessageHandler | null>(null);
@@ -94,6 +95,7 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
 
   const sendAudio = useCallback((pcm16: Int16Array) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    audioSentRef.current = true;
     wsRef.current.send(JSON.stringify({
       type: "input_audio_buffer.append",
       audio: arrayBufferToBase64(pcm16.buffer as ArrayBuffer),
@@ -102,6 +104,8 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
 
   const commitAudio = useCallback(() => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    if (!audioSentRef.current) return;  // don't commit empty buffer
+    audioSentRef.current = false;
     wsRef.current.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
     wsRef.current.send(JSON.stringify({ type: "response.create" }));
   }, []);

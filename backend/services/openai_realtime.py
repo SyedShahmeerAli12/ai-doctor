@@ -111,6 +111,7 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = JADWA_PROMPT):
             await openai_ws.send(json.dumps({
                 "type": "session.update",
                 "session": {
+                    "type": "realtime",
                     "modalities": ["audio", "text"],
                     "voice": os.getenv("OPENAI_VOICE", "shimmer"),
                     "input_audio_format": "pcm16",
