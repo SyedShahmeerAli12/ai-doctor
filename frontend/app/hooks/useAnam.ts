@@ -9,16 +9,18 @@ interface UseAnamReturn {
   isConnected: boolean;
   isSpeaking: boolean;
   initAnam: () => Promise<void>;
-  streamText: (chunk: string, isEnd: boolean) => void;
+  sendAudioChunk: (base64: string) => void;
+  endAudioSequence: () => void;
   clearBuffer: () => void;
   stopAnam: () => Promise<void>;
 }
 
 export function useAnam(): UseAnamReturn {
-  const videoRef          = useRef<HTMLVideoElement>(null);
-  const clientRef         = useRef<ReturnType<typeof createClient> | null>(null);
-  const talkRef           = useRef<any>(null);
-  const endSpeechTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoRef        = useRef<HTMLVideoElement>(null);
+  const clientRef       = useRef<ReturnType<typeof createClient> | null>(null);
+  const audioStreamRef  = useRef<any>(null);
+  const endSpeechTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstChunkRef = useRef(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking,  setIsSpeaking]  = useState(false);
 
@@ -35,15 +37,13 @@ export function useAnam(): UseAnamReturn {
     client.addListener(AnamEvent.CONNECTION_CLOSED, () => {
       setIsConnected(false);
       setIsSpeaking(false);
-      talkRef.current = null;
+      audioStreamRef.current = null;
     });
     client.addListener(AnamEvent.MESSAGE_STREAM_EVENT_RECEIVED, (e: any) => {
       if (e?.endOfSpeech) {
-        // Debounce: wait 1.5s before disabling — prevents flicker between sentences
         if (endSpeechTimer.current) clearTimeout(endSpeechTimer.current);
         endSpeechTimer.current = setTimeout(() => setIsSpeaking(false), 1500);
       } else {
-        // New speech chunk arriving — cancel any pending disable
         if (endSpeechTimer.current) { clearTimeout(endSpeechTimer.current); endSpeechTimer.current = null; }
       }
     });
@@ -51,43 +51,51 @@ export function useAnam(): UseAnamReturn {
     clientRef.current = client;
     if (videoRef.current) videoRef.current.id = VIDEO_ID;
     await client.streamToVideoElement(VIDEO_ID);
+
+    // Audio input stream — Anam lip-syncs to whatever PCM16 audio we feed it
+    audioStreamRef.current = client.createAgentAudioInputStream({
+      encoding: "pcm_s16le",
+      sampleRate: 16000,
+      channels: 1,
+    });
+    isFirstChunkRef.current = true;
   }, []);
 
-  const streamText = useCallback((chunk: string, isEnd: boolean) => {
-    if (!clientRef.current) return;
-
-    // Lazily create a new stream at the start of each response
-    if (!talkRef.current) {
-      try {
-        talkRef.current = clientRef.current.createTalkMessageStream();
-        setIsSpeaking(true);
-      } catch { return; }
+  const sendAudioChunk = useCallback((base64: string) => {
+    if (!audioStreamRef.current) return;
+    if (isFirstChunkRef.current) {
+      setIsSpeaking(true);
+      isFirstChunkRef.current = false;
     }
+    audioStreamRef.current.sendAudioChunk(base64);
+  }, []);
 
-    if (isEnd) {
-      try { talkRef.current.endMessage(); } catch {}
-      talkRef.current = null;
-      // isSpeaking stays true until MESSAGE_STREAM_EVENT_RECEIVED fires endOfSpeech
-    } else if (chunk) {
-      try { talkRef.current.streamMessageChunk(chunk, false); } catch {}
-    }
+  const endAudioSequence = useCallback(() => {
+    if (!audioStreamRef.current) return;
+    isFirstChunkRef.current = true;
+    audioStreamRef.current.endSequence();
+    if (endSpeechTimer.current) clearTimeout(endSpeechTimer.current);
+    endSpeechTimer.current = setTimeout(() => setIsSpeaking(false), 2500);
   }, []);
 
   const clearBuffer = useCallback(() => {
     if (endSpeechTimer.current) { clearTimeout(endSpeechTimer.current); endSpeechTimer.current = null; }
-    talkRef.current = null;
+    isFirstChunkRef.current = true;
     clientRef.current?.interruptPersona();
+    if (audioStreamRef.current) {
+      try { audioStreamRef.current.endSequence(); } catch {}
+    }
     setIsSpeaking(false);
   }, []);
 
   const stopAnam = useCallback(async () => {
     if (endSpeechTimer.current) { clearTimeout(endSpeechTimer.current); endSpeechTimer.current = null; }
-    talkRef.current = null;
+    audioStreamRef.current = null;
     await clientRef.current?.stopStreaming();
     clientRef.current = null;
     setIsConnected(false);
     setIsSpeaking(false);
   }, []);
 
-  return { videoRef, isConnected, isSpeaking, initAnam, streamText, clearBuffer, stopAnam };
+  return { videoRef, isConnected, isSpeaking, initAnam, sendAudioChunk, endAudioSequence, clearBuffer, stopAnam };
 }

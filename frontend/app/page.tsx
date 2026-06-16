@@ -5,6 +5,36 @@ import Avatar from "./components/Avatar";
 import { useAnam } from "./hooks/useAnam";
 import { useRealtimeRelay } from "./hooks/useRealtimeRelay";
 
+function resample24kTo16k(input: Int16Array): Int16Array {
+  const ratio = 24000 / 16000;
+  const outLen = Math.floor(input.length / ratio);
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const pos = i * ratio;
+    const lo = Math.floor(pos);
+    const hi = Math.min(lo + 1, input.length - 1);
+    const frac = pos - lo;
+    out[i] = Math.round(input[lo] * (1 - frac) + input[hi] * frac);
+  }
+  return out;
+}
+
+function base64ToInt16(b64: string): Int16Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Int16Array(bytes.buffer);
+}
+
+function int16ToBase64(arr: Int16Array): string {
+  const bytes = new Uint8Array(arr.buffer);
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize)
+    binary += String.fromCharCode(...Array.from(bytes.subarray(i, i + chunkSize)));
+  return btoa(binary);
+}
+
 type Screen = "consultation" | "summary" | "faq";
 
 interface Message { role: "user" | "assistant"; text: string; }
@@ -115,11 +145,11 @@ export default function Page() {
   const handleConnect = useCallback(() => {
     setSessionState("connecting");
     relay.connect(
-      () => {},
+      (b64) => anam.sendAudioChunk(int16ToBase64(resample24kTo16k(base64ToInt16(b64)))),
       addTranscript,
       () => {},
-      () => anam.streamText("", true),
-      (delta) => anam.streamText(delta, false),
+      () => anam.endAudioSequence(),
+      undefined,
     );
   }, [relay, anam, addTranscript]);
 

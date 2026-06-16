@@ -2,7 +2,7 @@
 import { useCallback, useRef, useState } from "react";
 
 type MessageHandler = (role: "user" | "assistant", text: string) => void;
-type AudioHandler   = (pcm16: Int16Array) => void;
+type AudioHandler   = (base64: string) => void;
 
 interface UseRealtimeRelayReturn {
   isConnected: boolean;
@@ -67,7 +67,7 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
         const msg = JSON.parse(event.data);
 
         if ((msg.type === "response.audio.delta" || msg.type === "response.output_audio.delta") && msg.delta)
-          onAudioRef.current?.(base64ToInt16Array(msg.delta));
+          onAudioRef.current?.(msg.delta);
 
         if (msg.type === "input_audio_buffer.speech_started")
           onInterruptRef.current?.();
@@ -81,8 +81,10 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
           if (assistantBufRef.current.trim())
             onTranscriptRef.current?.("assistant", assistantBufRef.current.trim());
           assistantBufRef.current = "";
-          onSpeechEndRef.current?.();
         }
+
+        if (msg.type === "response.output_audio.done" || msg.type === "response.audio.done")
+          onSpeechEndRef.current?.();
 
         if (msg.type === "conversation.item.input_audio_transcription.completed" && msg.transcript?.trim())
           onTranscriptRef.current?.("user", msg.transcript.trim());
