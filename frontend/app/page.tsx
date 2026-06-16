@@ -39,6 +39,8 @@ export default function Page() {
   const [summary,      setSummary]      = useState("");
   const [topics,       setTopics]       = useState<string[]>([]);
   const [summarizing,  setSummarizing]  = useState(false);
+  const [isTalking,    setIsTalking]    = useState(false);
+  const isTalkingRef = useRef(false);
 
   const anam  = useAnam();
   const relay = useRealtimeRelay();
@@ -90,6 +92,7 @@ export default function Page() {
     const processor = ctx.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
     processor.onaudioprocess = (e) => {
+      if (!isTalkingRef.current) return;
       const input = e.inputBuffer.getChannelData(0);
       const pcm16 = new Int16Array(input.length);
       for (let i = 0; i < input.length; i++)
@@ -119,6 +122,21 @@ export default function Page() {
       (delta) => anam.streamText(delta, false),
     );
   }, [relay, anam, addTranscript]);
+
+  const handlePTT = useCallback(() => {
+    if (anam.isSpeaking) return;
+    if (!isTalkingRef.current) {
+      // Start talking — interrupt avatar if needed and open mic
+      anam.clearBuffer();
+      isTalkingRef.current = true;
+      setIsTalking(true);
+    } else {
+      // Done talking — close mic, commit audio, trigger response
+      isTalkingRef.current = false;
+      setIsTalking(false);
+      relay.commitAudio();
+    }
+  }, [anam, relay]);
 
   const handleDone = useCallback(async () => {
     stopMic();
@@ -152,6 +170,8 @@ export default function Page() {
     setTopics([]);
     setScreen("consultation");
     setSessionState("idle");
+    isTalkingRef.current = false;
+    setIsTalking(false);
   }, []);
 
   useEffect(() => () => { stopMic(); relay.disconnect(); anam.stopAnam(); }, []);
@@ -305,12 +325,26 @@ export default function Page() {
           </button>
         )}
         {isActive && (
-          <button
-            onClick={handleDone}
-            className="w-full py-3.5 rounded-xl bg-danger text-white font-semibold text-sm hover:opacity-90 transition-opacity"
-          >
-            Done
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handlePTT}
+              disabled={anam.isSpeaking}
+              className={`w-full py-4 rounded-xl font-semibold text-sm transition-all
+                disabled:opacity-40 disabled:cursor-not-allowed
+                ${isTalking
+                  ? "bg-green-600 text-white scale-[1.02] shadow-lg shadow-green-900/40"
+                  : "bg-dt-red text-white hover:opacity-90"
+                }`}
+            >
+              {anam.isSpeaking ? "She is speaking…" : isTalking ? "⏹ Done — Send" : "🎤 Tap to Speak"}
+            </button>
+            <button
+              onClick={handleDone}
+              className="w-full py-2.5 rounded-xl border border-gray-600 text-gray-400 text-xs font-medium hover:text-white hover:border-gray-400 transition-colors"
+            >
+              End Session
+            </button>
+          </div>
         )}
       </div>
     </div>

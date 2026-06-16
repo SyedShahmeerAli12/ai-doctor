@@ -36,6 +36,9 @@ export function useAnam(): UseAnamReturn {
       setIsSpeaking(false);
       talkRef.current = null;
     });
+    client.addListener(AnamEvent.MESSAGE_STREAM_EVENT_RECEIVED, (e: any) => {
+      if (e?.endOfSpeech) setIsSpeaking(false);
+    });
 
     clientRef.current = client;
     if (videoRef.current) videoRef.current.id = VIDEO_ID;
@@ -56,7 +59,7 @@ export function useAnam(): UseAnamReturn {
     if (isEnd) {
       try { talkRef.current.endMessage(); } catch {}
       talkRef.current = null;
-      setIsSpeaking(false);
+      // isSpeaking stays true until MESSAGE_STREAM_EVENT_RECEIVED fires endOfSpeech
     } else if (chunk) {
       try { talkRef.current.streamMessageChunk(chunk, false); } catch {}
     }

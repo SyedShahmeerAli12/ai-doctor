@@ -8,6 +8,7 @@ interface UseRealtimeRelayReturn {
   isConnected: boolean;
   connect: (onAudio: AudioHandler, onTranscript: MessageHandler, onInterrupt: () => void, onSpeechEnd?: () => void, onTranscriptDelta?: (delta: string) => void) => void;
   sendAudio: (pcm16: Int16Array) => void;
+  commitAudio: () => void;
   disconnect: () => void;
 }
 
@@ -99,11 +100,17 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
     }));
   }, []);
 
+  const commitAudio = useCallback(() => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+    wsRef.current.send(JSON.stringify({ type: "response.create" }));
+  }, []);
+
   const disconnect = useCallback(() => {
     wsRef.current?.close();
     wsRef.current = null;
     setIsConnected(false);
   }, []);
 
-  return { isConnected, connect, sendAudio, disconnect };
+  return { isConnected, connect, sendAudio, commitAudio, disconnect };
 }

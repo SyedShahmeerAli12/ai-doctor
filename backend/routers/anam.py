@@ -15,10 +15,9 @@ async def get_anam_token():
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={"personaConfig": {
                 "name": "Ayesha",
-                "avatarId": persona_id,
+                "avatarId": "bfe32c2a-01c4-4b50-a41e-75bae1f66d62",
                 "voiceId": os.getenv("ANAM_VOICE_ID"),
-                "llmId": "a7cf662c-2ace-4de1-a21e-ef0fbf144bb7",
-                "systemPrompt": "You are Ayesha Khan, a 28-year-old patient visiting a doctor. Wait for the doctor to speak first.",
+                "brainType": "NONE",
             }},
         )
         if not res.is_success:
