@@ -117,7 +117,7 @@ export default function Page() {
     relay.connect(
       () => {},
       addTranscript,
-      () => anam.clearBuffer(),
+      () => {},
       () => anam.streamText("", true),
       (delta) => anam.streamText(delta, false),
     );
