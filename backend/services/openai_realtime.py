@@ -107,15 +107,16 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = JADWA_PROMPT):
     try:
         async with websockets.connect(openai_url, additional_headers=headers) as openai_ws:
 
-            # Disable server VAD — gpt-realtime-1.5 nests turn_detection under audio.input
+            # Disable server VAD — gpt-realtime-1.5 requires type + audio.input.turn_detection
             await openai_ws.send(json.dumps({
                 "type": "session.update",
                 "session": {
+                    "type": "realtime",
                     "audio": {
                         "input": {
                             "turn_detection": None,
                         }
-                    }
+                    },
                 },
             }))
 
