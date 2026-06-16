@@ -2,7 +2,7 @@ import asyncio
 import sys
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

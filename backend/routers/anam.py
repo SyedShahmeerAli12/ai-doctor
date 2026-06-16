@@ -9,19 +9,23 @@ async def get_anam_token():
     api_key = os.getenv("ANAM_API_KEY")
     persona_id = os.getenv("ANAM_PERSONA_ID")
 
+    voice_id = os.getenv("ANAM_VOICE_ID")
+    avatar_id = os.getenv("ANAM_AVATAR_ID")
+    print(f"[anam] using avatarId: {avatar_id} voiceId: {voice_id}", flush=True)
     async with httpx.AsyncClient(timeout=15.0) as client:
         res = await client.post(
             "https://api.anam.ai/v1/auth/session-token",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json={"personaConfig": {
                 "name": "Ayesha",
-                "avatarId": "bfe32c2a-01c4-4b50-a41e-75bae1f66d62",
-                "voiceId": os.getenv("ANAM_VOICE_ID"),
+                "avatarId": avatar_id,
+                "voiceId": voice_id,
                 "brainType": "NONE",
             }},
         )
-        if not res.is_success:
-            raise HTTPException(status_code=502, detail=f"Anam token error: {res.text}")
+    print(f"[anam] token response: {res.status_code} {res.text[:200]}", flush=True)
+    if not res.is_success:
+        raise HTTPException(status_code=502, detail=f"Anam token error: {res.text}")
 
     return res.json()
     
