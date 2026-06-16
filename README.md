@@ -92,11 +92,6 @@ ANAM_API_KEY=...
 ANAM_AVATAR_ID=...         # Avatar face ID from Anam dashboard
 ANAM_VOICE_ID=...          # Voice ID (unused — OpenAI audio is used directly)
 
-# App Auth
-APP_USERNAME=pharma
-APP_PASSWORD=pharma123
-JWT_SECRET=...
-```
 
 ### `frontend/.env.local`
 
