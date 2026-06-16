@@ -21,6 +21,7 @@ async def get_anam_token():
                 "avatarId": avatar_id,
                 "voiceId": voice_id,
                 "brainType": "NONE",
+                "languageCode": "ur",
             }},
         )
     print(f"[anam] token response: {res.status_code} {res.text[:200]}", flush=True)
