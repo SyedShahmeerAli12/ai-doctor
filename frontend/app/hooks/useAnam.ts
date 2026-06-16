@@ -15,9 +15,10 @@ interface UseAnamReturn {
 }
 
 export function useAnam(): UseAnamReturn {
-  const videoRef    = useRef<HTMLVideoElement>(null);
-  const clientRef   = useRef<ReturnType<typeof createClient> | null>(null);
-  const talkRef     = useRef<any>(null);
+  const videoRef          = useRef<HTMLVideoElement>(null);
+  const clientRef         = useRef<ReturnType<typeof createClient> | null>(null);
+  const talkRef           = useRef<any>(null);
+  const endSpeechTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking,  setIsSpeaking]  = useState(false);
 
@@ -37,7 +38,14 @@ export function useAnam(): UseAnamReturn {
       talkRef.current = null;
     });
     client.addListener(AnamEvent.MESSAGE_STREAM_EVENT_RECEIVED, (e: any) => {
-      if (e?.endOfSpeech) setIsSpeaking(false);
+      if (e?.endOfSpeech) {
+        // Debounce: wait 1.5s before disabling — prevents flicker between sentences
+        if (endSpeechTimer.current) clearTimeout(endSpeechTimer.current);
+        endSpeechTimer.current = setTimeout(() => setIsSpeaking(false), 1500);
+      } else {
+        // New speech chunk arriving — cancel any pending disable
+        if (endSpeechTimer.current) { clearTimeout(endSpeechTimer.current); endSpeechTimer.current = null; }
+      }
     });
 
     clientRef.current = client;
@@ -66,12 +74,14 @@ export function useAnam(): UseAnamReturn {
   }, []);
 
   const clearBuffer = useCallback(() => {
+    if (endSpeechTimer.current) { clearTimeout(endSpeechTimer.current); endSpeechTimer.current = null; }
     talkRef.current = null;
     clientRef.current?.interruptPersona();
     setIsSpeaking(false);
   }, []);
 
   const stopAnam = useCallback(async () => {
+    if (endSpeechTimer.current) { clearTimeout(endSpeechTimer.current); endSpeechTimer.current = null; }
     talkRef.current = null;
     await clientRef.current?.stopStreaming();
     clientRef.current = null;
