@@ -107,26 +107,17 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = JADWA_PROMPT):
     try:
         async with websockets.connect(openai_url, additional_headers=headers) as openai_ws:
 
-            # Disable server VAD — gpt-realtime-1.5 requires type + audio.input.turn_detection
+            # Set instructions at session level so they persist across all turns
             await openai_ws.send(json.dumps({
                 "type": "session.update",
                 "session": {
                     "type": "realtime",
+                    "instructions": prompt,
                     "audio": {
                         "input": {
                             "turn_detection": None,
                         }
                     },
-                },
-            }))
-
-            # Inject system prompt directly into conversation context
-            await openai_ws.send(json.dumps({
-                "type": "conversation.item.create",
-                "item": {
-                    "type": "message",
-                    "role": "system",
-                    "content": [{"type": "input_text", "text": prompt}],
                 },
             }))
 
