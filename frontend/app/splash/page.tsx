@@ -183,7 +183,7 @@ export default function SplashPage() {
 
           {/* START */}
           <button
-            onClick={() => { /* wired later */ }}
+            onClick={() => router.push("/")}
             className="bg-[#1c2170] text-white font-bold transition-all hover:bg-[#262c8c] hover:shadow-xl hover:shadow-indigo-900/25 active:scale-[0.98]"
             style={{
               marginTop: "clamp(26px,3.6vw,50px)",
