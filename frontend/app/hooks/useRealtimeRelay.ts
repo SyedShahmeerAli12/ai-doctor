@@ -6,7 +6,7 @@ type AudioHandler   = (base64: string) => void;
 
 interface UseRealtimeRelayReturn {
   isConnected: boolean;
-  connect: (onAudio: AudioHandler, onTranscript: MessageHandler, onInterrupt: () => void, onSpeechEnd?: () => void, onTranscriptDelta?: (delta: string) => void) => void;
+  connect: (onAudio: AudioHandler, onTranscript: MessageHandler, onInterrupt: () => void, onSpeechEnd?: () => void, onTranscriptDelta?: (delta: string) => void, onSpeechStart?: () => void) => void;
   sendAudio: (pcm16: Int16Array) => void;
   commitAudio: () => void;
   disconnect: () => void;
@@ -36,8 +36,10 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
   const onTranscriptRef   = useRef<MessageHandler | null>(null);
   const onInterruptRef    = useRef<(() => void) | null>(null);
   const onSpeechEndRef        = useRef<(() => void) | null>(null);
+  const onSpeechStartRef      = useRef<(() => void) | null>(null);
   const onTranscriptDeltaRef  = useRef<((d: string) => void) | null>(null);
   const assistantBufRef       = useRef("");
+  const speechStartFiredRef   = useRef(false);
 
   const connect = useCallback((
     onAudio: AudioHandler,
@@ -45,12 +47,15 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
     onInterrupt: () => void,
     onSpeechEnd?: () => void,
     onTranscriptDelta?: (delta: string) => void,
+    onSpeechStart?: () => void,
   ) => {
     onAudioRef.current      = onAudio;
     onTranscriptRef.current = onTranscript;
     onInterruptRef.current  = onInterrupt;
     onSpeechEndRef.current         = onSpeechEnd ?? null;
+    onSpeechStartRef.current       = onSpeechStart ?? null;
     onTranscriptDeltaRef.current   = onTranscriptDelta ?? null;
+    speechStartFiredRef.current    = false;
 
     const base   = process.env.NEXT_PUBLIC_BACKEND_URL || "";
     const wsBase = base
@@ -66,8 +71,13 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
       try {
         const msg = JSON.parse(event.data);
 
-        if ((msg.type === "response.audio.delta" || msg.type === "response.output_audio.delta") && msg.delta)
+        if ((msg.type === "response.audio.delta" || msg.type === "response.output_audio.delta") && msg.delta) {
+          if (!speechStartFiredRef.current) {
+            speechStartFiredRef.current = true;
+            onSpeechStartRef.current?.();
+          }
           onAudioRef.current?.(msg.delta);
+        }
 
         if (msg.type === "input_audio_buffer.speech_started")
           onInterruptRef.current?.();
@@ -83,8 +93,10 @@ export function useRealtimeRelay(): UseRealtimeRelayReturn {
           assistantBufRef.current = "";
         }
 
-        if (msg.type === "response.output_audio.done" || msg.type === "response.audio.done")
+        if (msg.type === "response.output_audio.done" || msg.type === "response.audio.done") {
+          speechStartFiredRef.current = false;
           onSpeechEndRef.current?.();
+        }
 
         if (msg.type === "conversation.item.input_audio_transcription.completed" && msg.transcript?.trim())
           onTranscriptRef.current?.("user", msg.transcript.trim());

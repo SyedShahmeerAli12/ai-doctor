@@ -69,15 +69,13 @@ export default function Page() {
   const [summary,      setSummary]      = useState("");
   const [topics,       setTopics]       = useState<string[]>([]);
   const [summarizing,  setSummarizing]  = useState(false);
-  const [isTalking,    setIsTalking]    = useState(false);
-  const isTalkingRef = useRef(false);
-
   const anam  = useAnam();
   const relay = useRealtimeRelay();
 
   const audioCtxRef  = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef    = useRef<MediaStream | null>(null);
+  const micTrackRef  = useRef<MediaStreamTrack | null>(null);
 
   const addTranscript = useCallback((role: "user" | "assistant", text: string) => {
     setTranscript((prev) => [...prev, { role, text }]);
@@ -113,16 +111,16 @@ export default function Page() {
 
   const startMic = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 24000 },
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 24000 },
     });
     streamRef.current = stream;
+    micTrackRef.current = stream.getAudioTracks()[0];
     const ctx = new AudioContext({ sampleRate: 24000 });
     audioCtxRef.current = ctx;
     const source = ctx.createMediaStreamSource(stream);
     const processor = ctx.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
     processor.onaudioprocess = (e) => {
-      if (!isTalkingRef.current) return;
       const input = e.inputBuffer.getChannelData(0);
       const pcm16 = new Int16Array(input.length);
       for (let i = 0; i < input.length; i++)
@@ -138,6 +136,7 @@ export default function Page() {
     processorRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    micTrackRef.current = null;
     audioCtxRef.current?.close();
     audioCtxRef.current = null;
   };
@@ -148,25 +147,19 @@ export default function Page() {
       (b64) => anam.sendAudioChunk(int16ToBase64(resample24kTo16k(base64ToInt16(b64)))),
       addTranscript,
       () => {},
-      () => anam.endAudioSequence(),
+      () => {
+        // Ayesha finished speaking — unmute mic after short delay
+        setTimeout(() => { if (micTrackRef.current) micTrackRef.current.enabled = true; }, 400);
+        anam.endAudioSequence();
+      },
       undefined,
+      () => {
+        // Ayesha started speaking — mute mic immediately to prevent echo
+        if (micTrackRef.current) micTrackRef.current.enabled = false;
+      },
     );
   }, [relay, anam, addTranscript]);
 
-  const handlePTT = useCallback(() => {
-    if (anam.isSpeaking) return;
-    if (!isTalkingRef.current) {
-      // Start talking — interrupt avatar if needed and open mic
-      anam.clearBuffer();
-      isTalkingRef.current = true;
-      setIsTalking(true);
-    } else {
-      // Done talking — close mic, commit audio, trigger response
-      isTalkingRef.current = false;
-      setIsTalking(false);
-      relay.commitAudio();
-    }
-  }, [anam, relay]);
 
   const handleDone = useCallback(async () => {
     stopMic();
@@ -200,8 +193,6 @@ export default function Page() {
     setTopics([]);
     setScreen("consultation");
     setSessionState("idle");
-    isTalkingRef.current = false;
-    setIsTalking(false);
   }, []);
 
   useEffect(() => () => { stopMic(); relay.disconnect(); anam.stopAnam(); }, []);
@@ -356,18 +347,16 @@ export default function Page() {
         )}
         {isActive && (
           <div className="flex flex-col gap-2">
-            <button
-              onClick={handlePTT}
-              disabled={anam.isSpeaking}
-              className={`w-full py-4 rounded-xl font-semibold text-sm transition-all
-                disabled:opacity-40 disabled:cursor-not-allowed
-                ${isTalking
-                  ? "bg-green-600 text-white scale-[1.02] shadow-lg shadow-green-900/40"
-                  : "bg-dt-red text-white hover:opacity-90"
-                }`}
-            >
-              {anam.isSpeaking ? "She is speaking…" : isTalking ? "⏹ Done — Send" : "🎤 Tap to Speak"}
-            </button>
+            <div className="w-full py-4 rounded-xl bg-gray-800 flex items-center justify-center gap-2">
+              {anam.isSpeaking ? (
+                <span className="text-gray-300 text-sm font-medium">Ayesha is speaking…</span>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-green-400 text-sm font-medium">Listening — speak now</span>
+                </>
+              )}
+            </div>
             <button
               onClick={handleDone}
               className="w-full py-2.5 rounded-xl border border-gray-600 text-gray-400 text-xs font-medium hover:text-white hover:border-gray-400 transition-colors"

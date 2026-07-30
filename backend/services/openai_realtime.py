@@ -120,7 +120,13 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = PHARMA_PROMPT):
                     "instructions": prompt,
                     "audio": {
                         "input": {
-                            "turn_detection": None,
+                            "turn_detection": {
+                                "type": "server_vad",
+                                "threshold": 0.5,
+                                "prefix_padding_ms": 300,
+                                "silence_duration_ms": 500,
+                            },
+                            "transcription": {"model": "whisper-1"},
                         }
                     },
                 },
@@ -140,28 +146,14 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = PHARMA_PROMPT):
             OUTPUT_TAIL_S = 1.2
             suppress_until = [0.0]
             t_speech_stopped = [0.0]
-            audio_appended = [False]
-            dropped_commit = [False]
 
             async def client_to_openai():
                 try:
                     while True:
                         data = await client_ws.receive_text()
                         msg = json.loads(data)
-                        msg_type = msg.get("type")
-                        if msg_type == "input_audio_buffer.append":
+                        if msg.get("type") == "input_audio_buffer.append":
                             if asyncio.get_event_loop().time() < suppress_until[0]:
-                                continue
-                            audio_appended[0] = True
-                        elif msg_type == "input_audio_buffer.commit":
-                            if not audio_appended[0]:
-                                dropped_commit[0] = True
-                                continue
-                            audio_appended[0] = False
-                            dropped_commit[0] = False
-                        elif msg_type == "response.create":
-                            if dropped_commit[0]:
-                                dropped_commit[0] = False
                                 continue
                         await openai_ws.send(data)
                 except Exception as e:
