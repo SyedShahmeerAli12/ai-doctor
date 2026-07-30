@@ -121,10 +121,11 @@ async def relay_to_openai(client_ws: WebSocket, prompt: str = PHARMA_PROMPT):
                     "audio": {
                         "input": {
                             "turn_detection": {
-                                "type": "server_vad",
-                                "threshold": 0.5,
-                                "prefix_padding_ms": 300,
-                                "silence_duration_ms": 500,
+                                "type": "semantic_vad",
+                                "eagerness": os.getenv("SEMANTIC_VAD_EAGERNESS", "auto"),
+                            },
+                            "noise_reduction": {
+                                "type": os.getenv("NOISE_REDUCTION_TYPE", "far_field"),
                             },
                             "transcription": {"model": "whisper-1"},
                         }
