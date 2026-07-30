@@ -6,11 +6,9 @@ router = APIRouter()
 
 @router.post("/token")
 async def get_anam_token():
-    api_key = os.getenv("ANAM_API_KEY")
-    persona_id = os.getenv("ANAM_PERSONA_ID")
-
-    voice_id = os.getenv("ANAM_VOICE_ID")
-    avatar_id = os.getenv("ANAM_AVATAR_ID")
+    api_key   = os.getenv("ANAM_API_KEY")
+    avatar_id = os.getenv("ANAM_AVATAR_ID") or os.getenv("ANAM_PERSONA_ID")
+    voice_id  = os.getenv("ANAM_VOICE_ID")
     print(f"[anam] using avatarId: {avatar_id} voiceId: {voice_id}", flush=True)
     async with httpx.AsyncClient(timeout=15.0) as client:
         res = await client.post(
@@ -21,7 +19,7 @@ async def get_anam_token():
                 "avatarId": avatar_id,
                 "voiceId": voice_id,
                 "brainType": "NONE",
-                "languageCode": "ur",
+                "languageCode": "en",
             }},
         )
     print(f"[anam] token response: {res.status_code} {res.text[:200]}", flush=True)

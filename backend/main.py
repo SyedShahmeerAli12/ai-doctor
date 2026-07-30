@@ -2,7 +2,7 @@ import asyncio
 import sys
 import os
 from dotenv import load_dotenv
-load_dotenv(override=True)
+load_dotenv()  # docker-compose env vars take priority; .env only fills in missing values
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

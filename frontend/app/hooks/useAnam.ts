@@ -8,7 +8,7 @@ interface UseAnamReturn {
   videoRef: React.RefObject<HTMLVideoElement>;
   isConnected: boolean;
   isSpeaking: boolean;
-  initAnam: () => Promise<void>;
+  initAnam: (onAudioStream?: (stream: MediaStream) => void) => Promise<void>;
   sendAudioChunk: (base64: string) => void;
   endAudioSequence: () => void;
   clearBuffer: () => void;
@@ -24,7 +24,7 @@ export function useAnam(): UseAnamReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking,  setIsSpeaking]  = useState(false);
 
-  const initAnam = useCallback(async () => {
+  const initAnam = useCallback(async (onAudioStream?: (stream: MediaStream) => void) => {
     const base = process.env.NEXT_PUBLIC_BACKEND_URL || "";
     const res = await fetch(`${base}/api/anam/token`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to get Anam token");
@@ -34,6 +34,10 @@ export function useAnam(): UseAnamReturn {
     const client = createClient(sessionToken, { disableInputAudio: true });
 
     client.addListener(AnamEvent.CONNECTION_ESTABLISHED, () => setIsConnected(true));
+    client.addListener(AnamEvent.AUDIO_STREAM_STARTED, (stream: MediaStream) => {
+      console.log("[anam] AUDIO_STREAM_STARTED tracks:", stream.getAudioTracks().length);
+      onAudioStream?.(stream);
+    });
     client.addListener(AnamEvent.CONNECTION_CLOSED, () => {
       setIsConnected(false);
       setIsSpeaking(false);

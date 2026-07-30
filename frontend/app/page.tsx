@@ -5,8 +5,9 @@ import Avatar from "./components/Avatar";
 import { useAnam } from "./hooks/useAnam";
 import { useRealtimeRelay } from "./hooks/useRealtimeRelay";
 
-function resample24kTo16k(input: Int16Array): Int16Array {
-  const ratio = 24000 / 16000;
+function resampleTo(input: Int16Array, fromRate: number, toRate: number): Int16Array {
+  if (fromRate === toRate) return input;
+  const ratio = fromRate / toRate;
   const outLen = Math.floor(input.length / ratio);
   const out = new Int16Array(outLen);
   for (let i = 0; i < outLen; i++) {
@@ -69,13 +70,23 @@ export default function Page() {
   const [summary,      setSummary]      = useState("");
   const [topics,       setTopics]       = useState<string[]>([]);
   const [summarizing,  setSummarizing]  = useState(false);
+  const [isMuted,      setIsMuted]      = useState(false);
+  const [elapsed,      setElapsed]      = useState(0);
+  const [audioLive,    setAudioLive]    = useState(false);
+  const avatarAudioCtxRef    = useRef<AudioContext | null>(null);
+  const avatarAudioStreamRef = useRef<MediaStream | null>(null);
+  const avatarAudioElRef     = useRef<HTMLAudioElement | null>(null);
   const anam  = useAnam();
   const relay = useRealtimeRelay();
 
-  const audioCtxRef  = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const streamRef    = useRef<MediaStream | null>(null);
-  const micTrackRef  = useRef<MediaStreamTrack | null>(null);
+  const audioCtxRef   = useRef<AudioContext | null>(null);
+  const workletRef    = useRef<AudioWorkletNode | null>(null);
+  const streamRef     = useRef<MediaStream | null>(null);
+  const micTrackRef   = useRef<MediaStreamTrack | null>(null);
+  const nativeRateRef = useRef<number>(48000);
+  const cameraVideoRef  = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const addTranscript = useCallback((role: "user" | "assistant", text: string) => {
     setTranscript((prev) => [...prev, { role, text }]);
@@ -99,41 +110,81 @@ export default function Page() {
 
   useEffect(() => {
     if (relay.isConnected && !anam.isConnected && sessionState === "connecting")
-      anam.initAnam().catch(console.error);
+      anam.initAnam(async (stream) => {
+        avatarAudioStreamRef.current = stream;
+        console.log("[audio] stream arrived, tracks:", stream.getAudioTracks().length);
+
+        // Primary: AudioContext (created in user gesture, stays unlocked)
+        const ctx = avatarAudioCtxRef.current;
+        if (ctx) {
+          try {
+            if (ctx.state === "suspended") await ctx.resume();
+            const src = ctx.createMediaStreamSource(stream);
+            src.connect(ctx.destination);
+            console.log("[audio] AudioContext routing active, state:", ctx.state);
+            setAudioLive(true);
+            return;
+          } catch (e) { console.warn("[audio] AudioContext failed:", e); }
+        }
+
+        // Fallback: plain <audio> element
+        try {
+          const el = document.createElement("audio");
+          el.srcObject = stream;
+          el.autoplay = true;
+          avatarAudioElRef.current = el;
+          await el.play();
+          console.log("[audio] <audio> element playing");
+          setAudioLive(true);
+        } catch (e) {
+          console.warn("[audio] autoplay blocked, waiting for tap:", e);
+          // audioLive stays false → tap banner stays visible
+        }
+      }).catch(console.error);
   }, [relay.isConnected, anam.isConnected, sessionState]);
 
   useEffect(() => {
     if (anam.isConnected && sessionState === "connecting") {
       setSessionState("active");
       startMic();
+      startCamera();
+      timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+      // Keep video element muted — audio is handled exclusively via AudioContext routing
+      const vid = anam.videoRef.current;
+      if (vid) { vid.muted = true; vid.play().catch(() => {}); }
     }
   }, [anam.isConnected, sessionState]);
 
   const startMic = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 24000 },
+    // Stream already obtained in handleConnect — reuse it
+    const stream = streamRef.current ?? await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     streamRef.current = stream;
     micTrackRef.current = stream.getAudioTracks()[0];
-    const ctx = new AudioContext({ sampleRate: 24000 });
+
+    const ctx = new AudioContext();
     audioCtxRef.current = ctx;
+    nativeRateRef.current = ctx.sampleRate; // typically 48000
+
+    await ctx.audioWorklet.addModule("/audio-processor.js");
     const source = ctx.createMediaStreamSource(stream);
-    const processor = ctx.createScriptProcessor(4096, 1, 1);
-    processorRef.current = processor;
-    processor.onaudioprocess = (e) => {
-      const input = e.inputBuffer.getChannelData(0);
-      const pcm16 = new Int16Array(input.length);
-      for (let i = 0; i < input.length; i++)
-        pcm16[i] = Math.max(-32768, Math.min(32767, Math.round(input[i] * 32767)));
-      relay.sendAudio(pcm16);
+    const worklet = new AudioWorkletNode(ctx, "audio-processor");
+    workletRef.current = worklet;
+
+    worklet.port.onmessage = (e: MessageEvent<Int16Array>) => {
+      // Resample from native rate (e.g. 48 kHz) down to 24 kHz for OpenAI
+      const pcm24k = resampleTo(e.data, nativeRateRef.current, 24000);
+      relay.sendAudio(pcm24k);
     };
-    source.connect(processor);
-    processor.connect(ctx.destination);
+
+    // Connect source → worklet only (no destination — avoids mic-through-speaker feedback)
+    source.connect(worklet);
   };
 
   const stopMic = () => {
-    processorRef.current?.disconnect();
-    processorRef.current = null;
+    workletRef.current?.disconnect();
+    workletRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     micTrackRef.current = null;
@@ -141,20 +192,72 @@ export default function Page() {
     audioCtxRef.current = null;
   };
 
-  const handleConnect = useCallback(() => {
+  const startCamera = async () => {
+    try {
+      // Reuse stream already obtained in handleConnect if available
+      const stream = cameraStreamRef.current ?? await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      cameraStreamRef.current = stream;
+      if (cameraVideoRef.current) cameraVideoRef.current.srcObject = stream;
+    } catch (e) {
+      console.warn("[camera] could not access camera:", e);
+    }
+  };
+
+  const stopCamera = () => {
+    cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    cameraStreamRef.current = null;
+    if (cameraVideoRef.current) cameraVideoRef.current.srcObject = null;
+  };
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60).toString().padStart(2, "0");
+    const sec = (s % 60).toString().padStart(2, "0");
+    return `${m}:${sec}`;
+  };
+
+  const handleConnect = useCallback(async () => {
     setSessionState("connecting");
+
+    // Request mic permission immediately in the user gesture — before session starts
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      streamRef.current = audioStream;
+      micTrackRef.current = audioStream.getAudioTracks()[0];
+    } catch (e) {
+      console.error("[mic] permission denied:", e);
+      setSessionState("idle");
+      return;
+    }
+
+    // Request camera permission (optional — session continues even if denied)
+    try {
+      const videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      cameraStreamRef.current = videoStream;
+      if (cameraVideoRef.current) cameraVideoRef.current.srcObject = videoStream;
+    } catch (e) {
+      console.warn("[camera] permission denied, continuing without camera");
+    }
+
+    // Create AudioContext inside user gesture — stays unlocked permanently
+    if (!avatarAudioCtxRef.current) {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+      const ctx = new Ctx();
+      ctx.resume().catch(() => {});
+      ctx.addEventListener("statechange", () => {
+        if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      });
+      avatarAudioCtxRef.current = ctx;
+    }
+
     relay.connect(
-      (b64) => anam.sendAudioChunk(int16ToBase64(resample24kTo16k(base64ToInt16(b64)))),
+      (b64) => anam.sendAudioChunk(int16ToBase64(resampleTo(base64ToInt16(b64), 24000, 16000))),
       addTranscript,
       () => {},
-      () => {
-        // Ayesha finished speaking — unmute mic after short delay
-        setTimeout(() => { if (micTrackRef.current) micTrackRef.current.enabled = true; }, 400);
-        anam.endAudioSequence();
-      },
+      () => anam.endAudioSequence(),
       undefined,
       () => {
-        // Ayesha started speaking — mute mic immediately to prevent echo
         if (micTrackRef.current) micTrackRef.current.enabled = false;
       },
     );
@@ -163,6 +266,9 @@ export default function Page() {
 
   const handleDone = useCallback(async () => {
     stopMic();
+    stopCamera();
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setElapsed(0);
     relay.disconnect();
     anam.stopAnam();
     setSessionState("idle");
@@ -191,11 +297,80 @@ export default function Page() {
     setTranscript([]);
     setSummary("");
     setTopics([]);
+    setIsMuted(false);
+    setElapsed(0);
+    setAudioLive(false);
+    avatarAudioStreamRef.current = null;
+    if (avatarAudioElRef.current) {
+      avatarAudioElRef.current.pause();
+      avatarAudioElRef.current.srcObject = null;
+      avatarAudioElRef.current = null;
+    }
     setScreen("consultation");
     setSessionState("idle");
   }, []);
 
-  useEffect(() => () => { stopMic(); relay.disconnect(); anam.stopAnam(); }, []);
+  const unlockAudio = useCallback(async () => {
+    const stream = avatarAudioStreamRef.current;
+
+    // Try AudioContext resume first
+    const ctx = avatarAudioCtxRef.current;
+    if (ctx && stream) {
+      try {
+        if (ctx.state === "suspended") await ctx.resume();
+        const src = ctx.createMediaStreamSource(stream);
+        src.connect(ctx.destination);
+        console.log("[audio] unlocked via AudioContext");
+        setAudioLive(true);
+        return;
+      } catch (e) { console.warn("[audio] unlock AudioContext failed:", e); }
+    }
+
+    // Fallback: play via <audio> element (user gesture guarantees autoplay)
+    if (stream) {
+      let el = avatarAudioElRef.current;
+      if (!el) {
+        el = document.createElement("audio");
+        el.srcObject = stream;
+        avatarAudioElRef.current = el;
+      }
+      await el.play().catch(console.warn);
+      console.log("[audio] unlocked via <audio> element");
+      setAudioLive(true);
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    if (!micTrackRef.current) return;
+    const next = !isMuted;
+    micTrackRef.current.enabled = !next;
+    setIsMuted(next);
+  }, [isMuted]);
+
+  // Unmute mic only after Anam finishes playing (isSpeaking goes false)
+  useEffect(() => {
+    if (!anam.isSpeaking && micTrackRef.current) {
+      micTrackRef.current.enabled = true;
+    }
+  }, [anam.isSpeaking]);
+
+  // No canplay listener needed — audio is routed via createMediaStreamSource in initAnam callback above.
+
+  useEffect(() => () => {
+    stopMic();
+    stopCamera();
+    if (timerRef.current) clearInterval(timerRef.current);
+    relay.disconnect();
+    anam.stopAnam();
+    avatarAudioCtxRef.current?.close().catch(() => {});
+    avatarAudioCtxRef.current = null;
+    if (avatarAudioElRef.current) {
+      avatarAudioElRef.current.pause();
+      avatarAudioElRef.current.srcObject = null;
+      avatarAudioElRef.current = null;
+    }
+    avatarAudioStreamRef.current = null;
+  }, []);
 
   if (!authed) return null;
 
@@ -319,53 +494,179 @@ export default function Page() {
     );
   }
 
-  // ── Consultation screen — full page avatar ────────────────────────────────
+  // ── Consultation screen — your design (index 5) ──────────────────────────
   return (
-    <div className="flex flex-col bg-gray-950 overflow-hidden" style={{ height: "100dvh" }}>
-      <div className="flex-1 min-h-0 relative">
-        <Avatar
-          videoRef={anam.videoRef}
-          isSpeaking={anam.isSpeaking}
-          isConnected={anam.isConnected}
-          isConnecting={isConnecting}
-        />
-      </div>
+    <>
+      <style>{`
+        :root{--bg:#0b1220;--panel:#111a2b;--panel-2:#16223a;--edge:rgba(255,255,255,0.08);--text:#eef2f8;--text-dim:#9fb0c9;--accent:#22c55e;--danger:#e5484d;}
+        *{box-sizing:border-box;}
+        .stage{width:100%;height:100dvh;margin:0;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+        .topbar{flex:0 0 auto;background:#0e1626;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--edge);}
+        .topbar h1{font-size:16px;font-weight:700;margin:0;letter-spacing:0.2px;color:var(--text);}
+        .topbar-left{display:flex;align-items:center;gap:16px;}
+        .copy-session{display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:12px;background:transparent;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;}
+        .copy-session:hover{background:rgba(255,255,255,0.06);color:var(--text);}
+        .video-wrap{flex:1 1 auto;position:relative;padding:14px;gap:12px;display:flex;align-items:stretch;justify-content:flex-start;min-height:0;background:linear-gradient(100deg,#0b1220 0%,#10202a 55%,#163038 100%);}
+        .main-video{position:relative;flex:1 1 0;min-width:0;border-radius:8px;overflow:hidden;background:#14181f;box-shadow:0 0 0 1px var(--edge);}
+        .main-video .video-slot{position:absolute;inset:0;}
+        .main-video .video-slot video{width:100%;height:100%;object-fit:contain;display:block;background:#14181f;}
+        .name-tag{position:absolute;left:14px;bottom:14px;background:rgba(10,14,22,0.65);backdrop-filter:blur(2px);color:#fff;font-size:13px;font-weight:600;padding:5px 12px;border-radius:5px;z-index:2;}
+        .rec-badge{position:absolute;top:14px;right:14px;background:rgba(10,14,22,0.55);color:#fff;font-size:12px;padding:4px 10px;border-radius:5px;display:flex;align-items:center;gap:6px;z-index:2;}
+        .rec-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);}
+        .pip-panel{flex:0 0 300px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:16px;gap:8px;}
+        .pip{position:relative;width:100%;aspect-ratio:16/11;background:#14181f;border-radius:10px;border:3px solid var(--accent);overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.5),0 0 0 1px rgba(34,197,94,0.25);}
+        .pip .video-slot{position:absolute;inset:0;}
+        .pip .video-slot video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);}
+        .pip .pip-mic{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;z-index:2;}
+        .pip .pip-name{position:absolute;left:10px;bottom:8px;color:#fff;font-size:13px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.6);z-index:2;}
+        .controls{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 22px 16px 22px;background:#0b1220;}
+        .ctrl-group{display:flex;align-items:center;gap:26px;}
+        .ctrl{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-dim);font-size:11px;cursor:pointer;background:none;border:none;font-family:inherit;}
+        .ctrl .circle{width:34px;height:34px;border-radius:50%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;color:var(--text);font-size:15px;}
+        .ctrl:hover .circle{background:#1d2c47;}
+        .ctrl.active .circle{background:rgba(34,197,94,0.16);color:var(--accent);}
+        .ctrl.danger .circle{background:rgba(229,72,77,0.18);color:var(--danger);}
+        .timer-block{display:flex;align-items:center;gap:18px;}
+        .sess-timer{font-variant-numeric:tabular-nums;font-size:13px;color:var(--text-dim);background:var(--panel-2);padding:6px 12px;border-radius:20px;letter-spacing:0.4px;}
+        .end-btn{background:var(--danger);border:none;color:#fff;padding:9px 20px;border-radius:20px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;}
+        .end-btn:hover{background:#cf3a3f;}
+        .end-btn:disabled{opacity:0.4;cursor:not-allowed;}
+        .start-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(11,18,32,0.88);z-index:10;gap:16px;}
+        .start-btn{background:#22c55e;border:none;color:#06210f;padding:12px 32px;border-radius:24px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.3px;}
+        .start-btn:hover{background:#16a34a;}
+        .start-btn:disabled{opacity:0.5;cursor:not-allowed;}
+        .speak-indicator{position:absolute;bottom:44px;left:14px;display:flex;align-items:center;gap:8px;background:rgba(10,14,22,0.7);backdrop-filter:blur(4px);padding:5px 12px;border-radius:20px;z-index:3;font-size:12px;color:#fff;}
+        .speak-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite;}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        .pip-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#14181f;color:var(--text-dim);font-size:12px;}
+      `}</style>
 
-      <div
-        className="flex-shrink-0 px-4 py-4 sm:px-6 sm:py-5 bg-gray-900 border-t border-gray-800"
-        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
-      >
-        {(isIdle || isConnecting) && (
-          <button
-            onClick={handleConnect}
-            disabled={isConnecting}
-            className="w-full py-3.5 rounded-xl bg-dt-red text-white font-semibold text-sm
-              hover:opacity-90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isConnecting ? "Connecting…" : "Start Consultation"}
-          </button>
-        )}
-        {isActive && (
-          <div className="flex flex-col gap-2">
-            <div className="w-full py-4 rounded-xl bg-gray-800 flex items-center justify-center gap-2">
-              {anam.isSpeaking ? (
-                <span className="text-gray-300 text-sm font-medium">Ayesha is speaking…</span>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-green-400 text-sm font-medium">Listening — speak now</span>
-                </>
-              )}
+      <div className="stage" style={{ fontFamily: '-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif', color: '#eef2f8' }}>
+
+        {/* TOP BAR */}
+        <div className="topbar">
+          <div className="topbar-left">
+            <h1>Abilirazole Rep Training Amarox Pharma</h1>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#9fb0c9' }}>
+            {isActive && <><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} /> Live</>}
+            {isConnecting && <span style={{ color: '#f59e0b' }}>Connecting…</span>}
+          </div>
+        </div>
+
+        {/* VIDEO WRAP */}
+        <div className="video-wrap">
+
+          {/* MAIN VIDEO — Dr. Malik avatar */}
+          <div className="main-video" onClick={isActive && !audioLive ? unlockAudio : undefined}
+               style={{ cursor: isActive && !audioLive ? 'pointer' : 'default' }}>
+            <div className="video-slot">
+              <video ref={anam.videoRef} autoPlay playsInline muted />
             </div>
+
+            {/* REC / speaking badge */}
+            <div className="rec-badge">
+              <span className="rec-dot" style={{ background: isActive ? (anam.isSpeaking ? '#22c55e' : '#e5484d') : '#475569' }} />
+              {isActive ? (anam.isSpeaking ? 'SPEAKING' : 'REC') : 'WAITING'}
+            </div>
+
+            {/* Name tag */}
+            <div className="name-tag">Dr. Ayesha Malik</div>
+
+            {/* Speaking indicator */}
+            {isActive && (
+              <div className="speak-indicator">
+                {anam.isSpeaking
+                  ? <><span className="speak-dot" style={{ background: '#22c55e' }} /> Dr. Malik is speaking</>
+                  : <><span className="speak-dot" style={{ background: '#3b82f6', animationDuration: '2s' }} /> Listening…</>
+                }
+              </div>
+            )}
+
+            {/* Tap-to-hear banner — shown when session is live but audio not yet unlocked */}
+            {isActive && !audioLive && (
+              <div style={{
+                position:'absolute', top:12, left:'50%', transform:'translateX(-50%)',
+                background:'rgba(34,197,94,0.9)', color:'#06210f',
+                padding:'7px 18px', borderRadius:24, fontSize:13, fontWeight:700,
+                zIndex:10, display:'flex', alignItems:'center', gap:8,
+                boxShadow:'0 4px 12px rgba(0,0,0,0.4)', whiteSpace:'nowrap',
+                animation:'pulse 1.4s infinite'
+              }}>
+                🔊 Tap here to enable audio
+              </div>
+            )}
+
+            {/* Start / connecting overlay */}
+            {!isActive && (
+              <div className="start-overlay">
+                <div style={{ fontSize: 14, color: '#9fb0c9', marginBottom: 4 }}>Dr. Ayesha Malik · Consultant Psychiatrist</div>
+                {isConnecting ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 13 }}>
+                    <span className="speak-dot" /> Connecting to session…
+                  </div>
+                ) : (
+                  <button className="start-btn" onClick={handleConnect}>▶ Start Training Session</button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* PiP — rep camera beside avatar, no gap */}
+          <div className="pip-panel"><div className="pip">
+            <div className="video-slot">
+              <video
+                ref={cameraVideoRef}
+                autoPlay
+                playsInline
+                muted
+              />
+            </div>
+            {/* fallback placeholder when camera not active */}
+            {!isActive && (
+              <div className="pip-placeholder">
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#9fb0c9" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+                <span>You</span>
+              </div>
+            )}
+            <div className="pip-mic" style={{ background: isMuted ? '#e5484d' : '#22c55e', color: isMuted ? '#fff' : '#06210f' }}>
+              {isMuted ? '🔇' : '🎤'}
+            </div>
+            <div className="pip-name">You (Rep)</div>
+          </div></div>
+        </div>
+
+        {/* BOTTOM CONTROLS */}
+        <div className="controls">
+          <div className="ctrl-group">
+            <button className="ctrl"><span className="circle">⚙</span>Settings</button>
+            <button className="ctrl active"><span className="circle">CC</span>Captions</button>
+          </div>
+
+          <div className="timer-block">
+            <span className="sess-timer">{formatTime(elapsed)}</span>
+          </div>
+
+          <div className="ctrl-group">
             <button
-              onClick={handleDone}
-              className="w-full py-2.5 rounded-xl border border-gray-600 text-gray-400 text-xs font-medium hover:text-white hover:border-gray-400 transition-colors"
+              className={`ctrl ${isActive ? (isMuted ? 'danger' : 'active') : ''}`}
+              onClick={isActive ? toggleMute : undefined}
+              style={{ cursor: isActive ? 'pointer' : 'not-allowed', opacity: isActive ? 1 : 0.4 }}
             >
-              End Session
+              <span className="circle">{isMuted ? '🔇' : '🎤'}</span>
+              {isMuted ? 'Unmute' : 'Audio'}
+            </button>
+            <button className="ctrl" style={{ opacity: 0.4, cursor: 'not-allowed' }}>
+              <span className="circle">📷</span>Video
+            </button>
+            <button className="end-btn" onClick={isActive ? handleDone : undefined} disabled={!isActive}>
+              ⏻ End
             </button>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
