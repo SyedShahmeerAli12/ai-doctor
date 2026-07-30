@@ -72,10 +72,6 @@ export default function Page() {
   const [summarizing,  setSummarizing]  = useState(false);
   const [isMuted,      setIsMuted]      = useState(false);
   const [elapsed,      setElapsed]      = useState(0);
-  const [audioLive,    setAudioLive]    = useState(false);
-  const avatarAudioCtxRef    = useRef<AudioContext | null>(null);
-  const avatarAudioStreamRef = useRef<MediaStream | null>(null);
-  const avatarAudioElRef     = useRef<HTMLAudioElement | null>(null);
   const anam  = useAnam();
   const relay = useRealtimeRelay();
 
@@ -110,37 +106,7 @@ export default function Page() {
 
   useEffect(() => {
     if (relay.isConnected && !anam.isConnected && sessionState === "connecting")
-      anam.initAnam(async (stream) => {
-        avatarAudioStreamRef.current = stream;
-        console.log("[audio] stream arrived, tracks:", stream.getAudioTracks().length);
-
-        // Primary: AudioContext (created in user gesture, stays unlocked)
-        const ctx = avatarAudioCtxRef.current;
-        if (ctx) {
-          try {
-            if (ctx.state === "suspended") await ctx.resume();
-            const src = ctx.createMediaStreamSource(stream);
-            src.connect(ctx.destination);
-            console.log("[audio] AudioContext routing active, state:", ctx.state);
-            setAudioLive(true);
-            return;
-          } catch (e) { console.warn("[audio] AudioContext failed:", e); }
-        }
-
-        // Fallback: plain <audio> element
-        try {
-          const el = document.createElement("audio");
-          el.srcObject = stream;
-          el.autoplay = true;
-          avatarAudioElRef.current = el;
-          await el.play();
-          console.log("[audio] <audio> element playing");
-          setAudioLive(true);
-        } catch (e) {
-          console.warn("[audio] autoplay blocked, waiting for tap:", e);
-          // audioLive stays false → tap banner stays visible
-        }
-      }).catch(console.error);
+      anam.initAnam().catch(console.error);
   }, [relay.isConnected, anam.isConnected, sessionState]);
 
   useEffect(() => {
@@ -149,9 +115,9 @@ export default function Page() {
       startMic();
       startCamera();
       timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
-      // Keep video element muted — audio is handled exclusively via AudioContext routing
+      // Unmute video — Anam puts audio+video in the same stream, browser syncs them natively
       const vid = anam.videoRef.current;
-      if (vid) { vid.muted = true; vid.play().catch(() => {}); }
+      if (vid) { vid.muted = false; vid.volume = 1.0; vid.play().catch(() => {}); }
     }
   }, [anam.isConnected, sessionState]);
 
@@ -240,17 +206,6 @@ export default function Page() {
       console.warn("[camera] permission denied, continuing without camera");
     }
 
-    // Create AudioContext inside user gesture — stays unlocked permanently
-    if (!avatarAudioCtxRef.current) {
-      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
-      const ctx = new Ctx();
-      ctx.resume().catch(() => {});
-      ctx.addEventListener("statechange", () => {
-        if (ctx.state === "suspended") ctx.resume().catch(() => {});
-      });
-      avatarAudioCtxRef.current = ctx;
-    }
-
     relay.connect(
       (b64) => anam.sendAudioChunk(int16ToBase64(resampleTo(base64ToInt16(b64), 24000, 16000))),
       addTranscript,
@@ -299,46 +254,10 @@ export default function Page() {
     setTopics([]);
     setIsMuted(false);
     setElapsed(0);
-    setAudioLive(false);
-    avatarAudioStreamRef.current = null;
-    if (avatarAudioElRef.current) {
-      avatarAudioElRef.current.pause();
-      avatarAudioElRef.current.srcObject = null;
-      avatarAudioElRef.current = null;
-    }
     setScreen("consultation");
     setSessionState("idle");
   }, []);
 
-  const unlockAudio = useCallback(async () => {
-    const stream = avatarAudioStreamRef.current;
-
-    // Try AudioContext resume first
-    const ctx = avatarAudioCtxRef.current;
-    if (ctx && stream) {
-      try {
-        if (ctx.state === "suspended") await ctx.resume();
-        const src = ctx.createMediaStreamSource(stream);
-        src.connect(ctx.destination);
-        console.log("[audio] unlocked via AudioContext");
-        setAudioLive(true);
-        return;
-      } catch (e) { console.warn("[audio] unlock AudioContext failed:", e); }
-    }
-
-    // Fallback: play via <audio> element (user gesture guarantees autoplay)
-    if (stream) {
-      let el = avatarAudioElRef.current;
-      if (!el) {
-        el = document.createElement("audio");
-        el.srcObject = stream;
-        avatarAudioElRef.current = el;
-      }
-      await el.play().catch(console.warn);
-      console.log("[audio] unlocked via <audio> element");
-      setAudioLive(true);
-    }
-  }, []);
 
   const toggleMute = useCallback(() => {
     if (!micTrackRef.current) return;
@@ -354,22 +273,12 @@ export default function Page() {
     }
   }, [anam.isSpeaking]);
 
-  // No canplay listener needed — audio is routed via createMediaStreamSource in initAnam callback above.
-
   useEffect(() => () => {
     stopMic();
     stopCamera();
     if (timerRef.current) clearInterval(timerRef.current);
     relay.disconnect();
     anam.stopAnam();
-    avatarAudioCtxRef.current?.close().catch(() => {});
-    avatarAudioCtxRef.current = null;
-    if (avatarAudioElRef.current) {
-      avatarAudioElRef.current.pause();
-      avatarAudioElRef.current.srcObject = null;
-      avatarAudioElRef.current = null;
-    }
-    avatarAudioStreamRef.current = null;
   }, []);
 
   if (!authed) return null;
@@ -558,10 +467,9 @@ export default function Page() {
         <div className="video-wrap">
 
           {/* MAIN VIDEO — Dr. Malik avatar */}
-          <div className="main-video" onClick={isActive && !audioLive ? unlockAudio : undefined}
-               style={{ cursor: isActive && !audioLive ? 'pointer' : 'default' }}>
+          <div className="main-video">
             <div className="video-slot">
-              <video ref={anam.videoRef} autoPlay playsInline muted />
+              <video ref={anam.videoRef} autoPlay playsInline />
             </div>
 
             {/* REC / speaking badge */}
@@ -580,20 +488,6 @@ export default function Page() {
                   ? <><span className="speak-dot" style={{ background: '#22c55e' }} /> Dr. Malik is speaking</>
                   : <><span className="speak-dot" style={{ background: '#3b82f6', animationDuration: '2s' }} /> Listening…</>
                 }
-              </div>
-            )}
-
-            {/* Tap-to-hear banner — shown when session is live but audio not yet unlocked */}
-            {isActive && !audioLive && (
-              <div style={{
-                position:'absolute', top:12, left:'50%', transform:'translateX(-50%)',
-                background:'rgba(34,197,94,0.9)', color:'#06210f',
-                padding:'7px 18px', borderRadius:24, fontSize:13, fontWeight:700,
-                zIndex:10, display:'flex', alignItems:'center', gap:8,
-                boxShadow:'0 4px 12px rgba(0,0,0,0.4)', whiteSpace:'nowrap',
-                animation:'pulse 1.4s infinite'
-              }}>
-                🔊 Tap here to enable audio
               </div>
             )}
 
