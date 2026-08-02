@@ -410,44 +410,100 @@ export default function Page() {
         :root{--bg:#0b1220;--panel:#111a2b;--panel-2:#16223a;--edge:rgba(255,255,255,0.08);--text:#eef2f8;--text-dim:#9fb0c9;--accent:#22c55e;--danger:#e5484d;}
         *{box-sizing:border-box;}
         .stage{width:100%;height:100dvh;margin:0;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+
+        /* ── TOP BAR ── */
         .topbar{flex:0 0 auto;background:#0e1626;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--edge);}
         .topbar h1{font-size:16px;font-weight:700;margin:0;letter-spacing:0.2px;color:var(--text);}
         .topbar-left{display:flex;align-items:center;gap:16px;}
-        .copy-session{display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:12px;background:transparent;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;}
-        .copy-session:hover{background:rgba(255,255,255,0.06);color:var(--text);}
+
+        /* ── VIDEO WRAP ── */
         .video-wrap{flex:1 1 auto;position:relative;padding:14px;gap:12px;display:flex;align-items:stretch;justify-content:flex-start;min-height:0;background:linear-gradient(100deg,#0b1220 0%,#10202a 55%,#163038 100%);}
+
+        /* ── MAIN AVATAR VIDEO ── */
         .main-video{position:relative;flex:1 1 0;min-width:0;border-radius:8px;overflow:hidden;background:#14181f;box-shadow:0 0 0 1px var(--edge);}
         .main-video .video-slot{position:absolute;inset:0;}
         .main-video .video-slot video{width:100%;height:100%;object-fit:contain;display:block;background:#14181f;}
         .name-tag{position:absolute;left:14px;bottom:14px;background:rgba(10,14,22,0.65);backdrop-filter:blur(2px);color:#fff;font-size:13px;font-weight:600;padding:5px 12px;border-radius:5px;z-index:2;}
         .rec-badge{position:absolute;top:14px;right:14px;background:rgba(10,14,22,0.55);color:#fff;font-size:12px;padding:4px 10px;border-radius:5px;display:flex;align-items:center;gap:6px;z-index:2;}
         .rec-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);}
+
+        /* ── DESKTOP PiP SIDEBAR ── */
         .pip-panel{flex:0 0 300px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:16px;gap:8px;}
         .pip{position:relative;width:100%;aspect-ratio:16/11;background:#14181f;border-radius:10px;border:3px solid var(--accent);overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.5),0 0 0 1px rgba(34,197,94,0.25);}
         .pip .video-slot{position:absolute;inset:0;}
         .pip .video-slot video{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);}
         .pip .pip-mic{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;z-index:2;}
         .pip .pip-name{position:absolute;left:10px;bottom:8px;color:#fff;font-size:13px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.6);z-index:2;}
+
+        /* ── BOTTOM CONTROLS ── */
         .controls{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 22px 16px 22px;background:#0b1220;}
         .ctrl-group{display:flex;align-items:center;gap:26px;}
         .ctrl{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-dim);font-size:11px;cursor:pointer;background:none;border:none;font-family:inherit;}
-        .ctrl .circle{width:34px;height:34px;border-radius:50%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;color:var(--text);font-size:15px;}
+        .ctrl .circle{width:44px;height:44px;border-radius:50%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;color:var(--text);font-size:18px;}
         .ctrl:hover .circle{background:#1d2c47;}
         .ctrl.active .circle{background:rgba(34,197,94,0.16);color:var(--accent);}
         .ctrl.danger .circle{background:rgba(229,72,77,0.18);color:var(--danger);}
         .timer-block{display:flex;align-items:center;gap:18px;}
         .sess-timer{font-variant-numeric:tabular-nums;font-size:13px;color:var(--text-dim);background:var(--panel-2);padding:6px 12px;border-radius:20px;letter-spacing:0.4px;}
-        .end-btn{background:var(--danger);border:none;color:#fff;padding:9px 20px;border-radius:20px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;}
+        .end-btn{background:var(--danger);border:none;color:#fff;padding:12px 24px;border-radius:24px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;min-height:48px;}
         .end-btn:hover{background:#cf3a3f;}
         .end-btn:disabled{opacity:0.4;cursor:not-allowed;}
-        .start-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(11,18,32,0.88);z-index:10;gap:16px;}
-        .start-btn{background:#22c55e;border:none;color:#06210f;padding:12px 32px;border-radius:24px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.3px;}
+
+        /* ── OVERLAY & INDICATORS ── */
+        .start-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(11,18,32,0.88);z-index:10;gap:16px;padding:20px;}
+        .start-btn{background:#22c55e;border:none;color:#06210f;padding:16px 40px;border-radius:28px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.3px;min-height:56px;width:100%;max-width:320px;}
         .start-btn:hover{background:#16a34a;}
         .start-btn:disabled{opacity:0.5;cursor:not-allowed;}
         .speak-indicator{position:absolute;bottom:44px;left:14px;display:flex;align-items:center;gap:8px;background:rgba(10,14,22,0.7);backdrop-filter:blur(4px);padding:5px 12px;border-radius:20px;z-index:3;font-size:12px;color:#fff;}
         .speak-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite;}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         .pip-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#14181f;color:var(--text-dim);font-size:12px;}
+
+        /* ── MOBILE — Zoom/Meet style ── */
+        @media (max-width: 640px) {
+          .topbar{padding:8px 14px;}
+          .topbar h1{font-size:13px;line-height:1.3;}
+
+          /* video area: no padding, avatar fills everything */
+          .video-wrap{padding:0;gap:0;}
+          .main-video{border-radius:0;box-shadow:none;}
+
+          /* PiP becomes a floating overlay in top-right corner */
+          .pip-panel{
+            position:absolute;
+            top:10px;
+            right:10px;
+            width:110px;
+            flex:none;
+            padding:0;
+            justify-content:flex-start;
+            z-index:20;
+          }
+          .pip{
+            aspect-ratio:3/4;
+            border-width:2px;
+            border-radius:10px;
+            box-shadow:0 4px 16px rgba(0,0,0,0.7);
+            width:100%;
+          }
+          .pip .pip-name{font-size:11px;left:6px;bottom:6px;}
+          .pip .pip-mic{width:22px;height:22px;font-size:11px;top:6px;right:6px;}
+
+          /* name tag + rec badge smaller */
+          .name-tag{font-size:12px;padding:4px 10px;left:10px;bottom:10px;}
+          .rec-badge{font-size:11px;padding:3px 8px;top:10px;right:10px;}
+
+          /* speaking indicator above controls */
+          .speak-indicator{bottom:70px;left:10px;font-size:11px;}
+
+          /* controls: compact single row */
+          .controls{padding:10px 16px 16px;gap:0;}
+          .ctrl-group{gap:20px;}
+          .ctrl{font-size:10px;}
+          .ctrl .circle{width:44px;height:44px;font-size:18px;}
+          .sess-timer{font-size:12px;padding:5px 10px;}
+          .end-btn{padding:12px 20px;font-size:13px;border-radius:22px;}
+        }
       `}</style>
 
       <div className="stage" style={{ fontFamily: '-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif', color: '#eef2f8' }}>

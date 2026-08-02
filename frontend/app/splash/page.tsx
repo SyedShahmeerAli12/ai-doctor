@@ -22,6 +22,17 @@ export default function SplashPage() {
 
   return (
     <div className="relative w-full overflow-hidden bg-[#f7f8fc]" style={{ minHeight: "100dvh" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .splash-left { padding-left: 6vw !important; padding-right: 6vw !important; }
+          .splash-hero-row { flex-direction: column !important; align-items: flex-start !important; gap: 16px !important; }
+          .splash-divider { display: none !important; }
+          .splash-subtitle { margin-left: 0 !important; margin-top: 20px !important; font-size: 15px !important; }
+          .splash-start-btn { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; font-size: 18px !important; padding-top: 18px !important; padding-bottom: 18px !important; }
+          .splash-heading { font-size: clamp(36px, 11vw, 54px) !important; }
+          .splash-sub-heading { font-size: clamp(16px, 5vw, 22px) !important; }
+        }
+      `}</style>
       {/* ══ Right-side circular artwork ═════════════════════════════ */}
       <div className="absolute inset-y-0 right-0 hidden md:block pointer-events-none select-none">
         {/* Outer pale ring */}
@@ -99,7 +110,7 @@ export default function SplashPage() {
       </svg>
 
       {/* ══ Left content ════════════════════════════════════════════ */}
-      <div className="relative z-10 flex flex-col w-full md:w-[58%] lg:w-[52%] px-[6vw] md:px-[5vw] py-[5vh]" style={{ minHeight: "100dvh" }}>
+      <div className="splash-left relative z-10 flex flex-col w-full md:w-[58%] lg:w-[52%] px-[6vw] md:px-[5vw] py-[5vh]" style={{ minHeight: "100dvh" }}>
         {/* Logo */}
         <div className="flex flex-col leading-none">
           <div className="flex items-start">
@@ -133,24 +144,24 @@ export default function SplashPage() {
 
         {/* Hero block — vertically centered */}
         <div className="flex flex-col my-auto" style={{ paddingBottom: "6vh" }}>
-          <div className="flex items-center" style={{ gap: "clamp(16px,2vw,30px)" }}>
+          <div className="splash-hero-row flex items-center" style={{ gap: "clamp(16px,2vw,30px)" }}>
             <ProfileIcon />
-            <div className="w-px self-stretch bg-[#c9ccdd]" style={{ minHeight: "clamp(90px,11vw,150px)" }} />
+            <div className="splash-divider w-px self-stretch bg-[#c9ccdd]" style={{ minHeight: "clamp(90px,11vw,150px)" }} />
             <div className="flex flex-col">
               <h1
-                className="font-extrabold text-[#1c2170] leading-[1.02]"
+                className="splash-heading font-extrabold text-[#1c2170] leading-[1.02]"
                 style={{ fontSize: "clamp(30px,4.2vw,58px)", letterSpacing: "-0.01em" }}
               >
                 AI DOCTOR
               </h1>
               <h1
-                className="font-extrabold text-[#f47521] leading-[1.02]"
+                className="splash-heading font-extrabold text-[#f47521] leading-[1.02]"
                 style={{ fontSize: "clamp(30px,4.2vw,58px)", letterSpacing: "-0.01em" }}
               >
                 SIMULATION
               </h1>
               <p
-                className="font-medium text-[#1c2170]"
+                className="splash-sub-heading font-medium text-[#1c2170]"
                 style={{
                   fontSize: "clamp(15px,1.9vw,26px)",
                   letterSpacing: "0.13em",
@@ -169,7 +180,7 @@ export default function SplashPage() {
 
           {/* Subtitle */}
           <div
-            className="text-[#6b7089]"
+            className="splash-subtitle text-[#6b7089]"
             style={{
               fontSize: "clamp(14px,1.35vw,19px)",
               lineHeight: 1.65,
@@ -184,7 +195,7 @@ export default function SplashPage() {
           {/* START */}
           <button
             onClick={() => router.push("/")}
-            className="bg-[#1c2170] text-white font-bold transition-all hover:bg-[#262c8c] hover:shadow-xl hover:shadow-indigo-900/25 active:scale-[0.98]"
+            className="splash-start-btn bg-[#1c2170] text-white font-bold transition-all hover:bg-[#262c8c] hover:shadow-xl hover:shadow-indigo-900/25 active:scale-[0.98]"
             style={{
               marginTop: "clamp(26px,3.6vw,50px)",
               marginLeft: "clamp(0px,10vw,140px)",
