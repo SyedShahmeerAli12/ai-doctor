@@ -37,32 +37,24 @@ export default function LoginPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center p-6"
-      style={{ background: "linear-gradient(135deg, #f8f9ff 0%, #eef0ff 100%)" }}
+      style={{ background: "linear-gradient(135deg, #f0f4f8 0%, #e8edf3 100%)" }}
     >
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center gap-1 mb-1">
-            <span
-              className="text-3xl font-black tracking-wider"
-              style={{ color: "#1a237e", letterSpacing: "0.12em" }}
-            >
-              AMAROX
-            </span>
-            <span className="text-3xl font-black" style={{ color: "#ff6600" }}>×</span>
-          </div>
-          <span
-            className="text-xs font-semibold tracking-[0.35em]"
-            style={{ color: "#1a237e" }}
-          >
-            PHARMA
-          </span>
-          <p className="text-sm text-gray-400 mt-3 tracking-wide">AI Doctor Simulation · Rep Training</p>
+          <img src="/gsk-new-logo.png" alt="GSK" style={{ height: 64, objectFit: "contain", marginBottom: 12 }} />
+          <p className="text-xs font-bold tracking-[0.3em] uppercase" style={{ color: "#102643" }}>
+            AI Doctor Simulation
+          </p>
+          <p className="text-xs text-gray-400 mt-1 tracking-wide">Rep Training Platform</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl border border-indigo-100 shadow-xl shadow-indigo-100/50 p-8">
-          <h2 className="text-base font-semibold mb-6" style={{ color: "#1a237e" }}>
+        <div
+          className="bg-white rounded-2xl p-8"
+          style={{ border: "1px solid rgba(16,38,67,0.12)", boxShadow: "0 20px 60px rgba(16,38,67,0.10)" }}
+        >
+          <h2 className="text-base font-semibold mb-6" style={{ color: "#102643" }}>
             Sign in to continue
           </h2>
 
@@ -78,10 +70,8 @@ export default function LoginPage() {
                 required
                 autoComplete="username"
                 placeholder="Enter username"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900
-                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                style={{ "--tw-ring-color": "#1a237e" } as React.CSSProperties}
-                onFocus={(e) => (e.target.style.boxShadow = "0 0 0 2px #1a237e")}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all"
+                onFocus={(e) => (e.target.style.boxShadow = "0 0 0 2px #f04c05")}
                 onBlur={(e) => (e.target.style.boxShadow = "")}
               />
             </div>
@@ -97,9 +87,8 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
                 placeholder="Enter password"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900
-                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                onFocus={(e) => (e.target.style.boxShadow = "0 0 0 2px #1a237e")}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all"
+                onFocus={(e) => (e.target.style.boxShadow = "0 0 0 2px #f04c05")}
                 onBlur={(e) => (e.target.style.boxShadow = "")}
               />
             </div>
@@ -113,9 +102,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-widest
-                transition-all hover:opacity-90 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-              style={{ background: "#1a237e" }}
+              className="w-full py-3.5 rounded-xl font-bold text-white text-sm tracking-widest transition-all hover:opacity-90 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+              style={{ background: "linear-gradient(135deg, #f04c05 0%, #ff7d3c 100%)" }}
             >
               {loading ? "Signing in…" : "SIGN IN"}
             </button>
@@ -123,7 +111,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Amarox Pharma · Authorized Personnel Only
+          GSK · Authorized Personnel Only
         </p>
       </div>
     </div>

@@ -511,7 +511,8 @@ export default function Page() {
         {/* TOP BAR */}
         <div className="topbar">
           <div className="topbar-left">
-            <h1>Abilirazole Rep Training Amarox Pharma</h1>
+            <img src="/gsk-new-logo.png" alt="GSK" style={{ height: 28, objectFit: 'contain' }} />
+            <h1>Augmentin · AI Doctor Simulation</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#9fb0c9' }}>
             {isActive && <><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} /> Live</>}
@@ -535,13 +536,13 @@ export default function Page() {
             </div>
 
             {/* Name tag */}
-            <div className="name-tag">Dr. Ayesha Malik</div>
+            <div className="name-tag">Dr. Ahmed Khan</div>
 
             {/* Speaking indicator */}
             {isActive && (
               <div className="speak-indicator">
                 {anam.isSpeaking
-                  ? <><span className="speak-dot" style={{ background: '#22c55e' }} /> Dr. Malik is speaking</>
+                  ? <><span className="speak-dot" style={{ background: '#22c55e' }} /> Dr. Khan is speaking</>
                   : <><span className="speak-dot" style={{ background: '#3b82f6', animationDuration: '2s' }} /> Listening…</>
                 }
               </div>
@@ -550,7 +551,7 @@ export default function Page() {
             {/* Start / connecting overlay */}
             {!isActive && (
               <div className="start-overlay">
-                <div style={{ fontSize: 14, color: '#9fb0c9', marginBottom: 4 }}>Dr. Ayesha Malik · Consultant Psychiatrist</div>
+                <div style={{ fontSize: 14, color: '#9fb0c9', marginBottom: 4 }}>Dr. Ahmed Khan · Consultant Physician</div>
                 {isConnecting ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 13 }}>
                     <span className="speak-dot" /> Connecting to session…

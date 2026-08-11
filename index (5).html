@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navigating Common Concerns — Session</title>
+<style>
+  :root{
+    --bg: #0b1220;
+    --panel: #111a2b;
+    --panel-2: #16223a;
+    --edge: rgba(255,255,255,0.08);
+    --text: #eef2f8;
+    --text-dim: #9fb0c9;
+    --accent: #22c55e;
+    --danger: #e5484d;
+    --brand: #d3232f;
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; height:100%;
+    background: #05070c;
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .stage{
+    width:100%;
+    max-width: 1200px;
+    aspect-ratio: 1395 / 692;
+    margin: 24px auto;
+    background: var(--bg);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  /* ---- header ---- */
+  .topbar{
+    flex: 0 0 auto;
+    background: #0e1626;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--edge);
+  }
+  .topbar h1{
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+  .copy-session{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 12px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+  }
+  .copy-session:hover{ background: rgba(255,255,255,0.06); color: var(--text); }
+  .topbar-left{ display:flex; align-items:center; gap:16px; }
+
+  /* ---- video area ---- */
+  .video-wrap{
+    flex: 1 1 auto;
+    position: relative;
+    padding: 14px;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-height: 0;
+    background: linear-gradient(100deg, #0b1220 0%, #10202a 55%, #163038 100%);
+  }
+
+  /* Main video container — a framed, contained tile (not edge-to-edge). Drop a <video> element inside .video-slot */
+  .main-video{
+    position: relative;
+    width: 65%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #14181f;
+    box-shadow: 0 0 0 1px var(--edge);
+  }
+  .main-video .video-slot{
+    position: absolute;
+    inset: 0;
+  }
+  .main-video .video-slot video,
+  .main-video .video-slot img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .name-tag{
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    background: rgba(10,14,22,0.65);
+    backdrop-filter: blur(2px);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 5px;
+    z-index: 2;
+  }
+
+  .rec-badge{
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(10,14,22,0.55);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2;
+  }
+  .rec-dot{
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--danger);
+  }
+
+  /* ---- PIP self view — tucked into the bottom-right corner, straddling the main tile's edge ---- */
+  .pip{
+    position: absolute;
+    right: 5%;
+    bottom: 8%;
+    width: 22%;
+    min-width: 160px;
+    aspect-ratio: 16/11;
+    background: #14181f;
+    border-radius: 10px;
+    border: 3px solid var(--accent);
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,197,94,0.25);
+  }
+  .pip .video-slot{
+    position: absolute;
+    inset: 0;
+  }
+  .pip .video-slot video,
+  .pip .video-slot img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .pip .mic{
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px; height: 26px;
+    background: var(--accent);
+    color: #06210f;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    z-index: 2;
+  }
+  .pip .pip-name{
+    position: absolute;
+    left: 10px;
+    bottom: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    z-index: 2;
+  }
+
+  /* ---- bottom controls ---- */
+  .controls{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 22px 16px 22px;
+  }
+  .ctrl-group{
+    display: flex;
+    align-items: center;
+    gap: 26px;
+  }
+  .ctrl{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: inherit;
+  }
+  .ctrl .circle{
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--panel-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    font-size: 15px;
+  }
+  .ctrl:hover .circle{ background: #1d2c47; }
+  .ctrl.active .circle{ background: rgba(34,197,94,0.16); color: var(--accent); }
+  .ctrl.danger .circle{ background: rgba(229,72,77,0.18); color: var(--danger); }
+
+  .timer-block{
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .timer{
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--text-dim);
+    background: var(--panel-2);
+    padding: 6px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.4px;
+  }
+  .pause-btn{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel-2);
+    border: none;
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .pause-btn:hover{ background: #1d2c47; }
+
+  .end-btn{
+    background: var(--danger);
+    border: none;
+    color: #fff;
+    padding: 9px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .end-btn:hover{ background: #cf3a3f; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Navigating Common Concerns</h1>
+      <button class="copy-session">⧉ Copy Session ID</button>
+    </div>
+  </div>
+
+  <div class="video-wrap">
+    <!-- Main feed — insert <video> (or <img> placeholder) inside .video-slot -->
+    <div class="main-video">
+      <div class="video-slot">
+        <!-- <video autoplay playsinline></video> -->
+      </div>
+      <div class="rec-badge"><span class="rec-dot"></span> REC</div>
+      <div class="name-tag">Dr Carter</div>
+    </div>
+
+    <!-- PIP self view — insert <video> (or <img> placeholder) inside .video-slot -->
+    <div class="pip">
+      <div class="video-slot">
+        <!-- <video autoplay playsinline muted></video> -->
+      </div>
+      <div class="mic">📷</div>
+      <div class="pip-name">Sean</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <button class="ctrl"><span class="circle">⚙</span>Settings</button>
+      <button class="ctrl active"><span class="circle">CC</span>Captions</button>
+    </div>
+
+    <div class="timer-block">
+      <span class="timer">00:33</span>
+      <button class="pause-btn">❚❚ Pause</button>
+    </div>
+
+    <div class="ctrl-group">
+      <button class="ctrl"><span class="circle">🎤</span>Audio</button>
+      <button class="ctrl"><span class="circle">📷</span>Video</button>
+      <button class="end-btn">⏻ End</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
