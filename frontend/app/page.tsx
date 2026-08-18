@@ -417,7 +417,7 @@ export default function Page() {
         }
       `}</style>
 
-      <div className="stage" style={{ fontFamily: '-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif', color: '#eef2f8' }}>
+      <div className="stage" style={{ fontFamily: '-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif', color: '#eef2f8', zoom: 0.9 }}>
 
         {/* TOP BAR */}
         <div className="topbar">
