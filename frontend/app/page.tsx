@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Avatar from "./components/Avatar";
 import { useAnam } from "./hooks/useAnam";
 import { useRealtimeRelay } from "./hooks/useRealtimeRelay";
 
@@ -37,28 +36,19 @@ function int16ToBase64(arr: Int16Array): string {
 }
 
 type Screen = "consultation" | "summary" | "faq";
-
 interface Message { role: "user" | "assistant"; text: string; }
 
 const FAQS = [
-  { q: "How can I open an investment account?", a: "Open digitally through our onboarding portal using your Saudi National ID or Iqama, mobile number, and email. KYC verification takes only a few minutes." },
-  { q: "What documents are required?", a: "Saudi National ID or Iqama, valid mobile number, email address, source of income details, and FATCA/CRS declarations where applicable." },
-  { q: "Can non-residents open an account?", a: "Yes. Eligible non-resident investors may open accounts subject to regulatory approvals and additional KYC documents such as passport, visa, and proof of overseas address." },
-  { q: "How long does account opening take?", a: "Digital onboarding completes within minutes. Compliance and KYC review may take a few hours to 2 business days depending on document completeness." },
-  { q: "Is physical presence required?", a: "Most accounts open digitally via Nafath verification. In certain cases, additional verification may be required." },
-  { q: "What is KYC and why is it required?", a: "Know Your Customer is a regulatory requirement to verify your identity, source of funds, and investment objectives to comply with AML regulations." },
-  { q: "What is FATCA?", a: "Foreign Account Tax Compliance Act — a US regulation identifying US taxpayers holding foreign financial accounts." },
-  { q: "Why was my application rejected?", a: "Common reasons include incomplete documentation, failed identity verification, expired ID, or compliance concerns." },
-  { q: "What investment products do you offer?", a: "Mutual Funds, Sukuk, Equity Portfolios, Discretionary Portfolio Management, ETFs, Money Market Funds, and Wealth Management Solutions." },
-  { q: "Do you offer Shariah-compliant investments?", a: "Yes. We offer Shariah-compliant products certified by an appointed Shariah Board, designed according to Islamic finance principles." },
-  { q: "What is the minimum investment amount?", a: "It varies by product. Some funds start from SAR 1,000 while discretionary portfolios may require higher minimums." },
-  { q: "Can I withdraw my investments anytime?", a: "Liquidity depends on the product. Open-ended funds allow redemptions within a few business days. Certain products have lock-in periods." },
-  { q: "What is risk tolerance?", a: "Your ability and willingness to handle fluctuations in the value of your investments. It helps us recommend the right products for you." },
-  { q: "I did not receive my OTP.", a: "Please verify your mobile number and ensure network connectivity. If the issue continues, we can resend the OTP or connect you to support." },
-  { q: "My Nafath verification failed.", a: "Ensure your Nafath application is active and linked to your valid National ID or Iqama. Retry after a few minutes." },
-  { q: "Is my information secure?", a: "Yes. We use secure encryption, authentication protocols, and regulatory compliance controls to protect your personal and financial information." },
-  { q: "Can businesses open investment accounts?", a: "Yes. Corporate clients need commercial registration documents, authorized signatories, and corporate KYC documentation." },
-  { q: "How can I contact customer support?", a: "You can reach us via phone, email, live chat, WhatsApp, or through a dedicated relationship manager." },
+  { q: "What is Community-Acquired Pneumonia?", a: "CAP is a pneumonia acquired outside of hospital settings, caused by bacteria such as Streptococcus pneumoniae, Haemophilus influenzae, and atypical organisms." },
+  { q: "When is Augmentin appropriate for CAP?", a: "Augmentin is appropriate for clinically established or strongly suspected bacterial CAP in outpatient-eligible patients who have passed safety screening." },
+  { q: "What is the mechanism of Augmentin?", a: "Amoxicillin interferes with bacterial cell-wall synthesis; clavulanate inhibits certain beta-lactamases that would otherwise inactivate amoxicillin." },
+  { q: "What are the key contraindications?", a: "Serious penicillin/beta-lactam hypersensitivity and previous Augmentin-associated cholestatic jaundice or hepatic dysfunction are major contraindications." },
+  { q: "Does Augmentin cover atypical CAP pathogens?", a: "No. Augmentin does not reliably cover atypicals such as Mycoplasma, Chlamydophila, or Legionella — reps must never claim broad atypical coverage." },
+  { q: "How should dose be adjusted for renal impairment?", a: "Dose adjustment may be needed — always defer to the approved prescribing information and physician judgment." },
+  { q: "What GI side effects should be mentioned?", a: "Diarrhoea, nausea, and vomiting are recognised. Administration at the start of a meal helps reduce GI intolerance." },
+  { q: "When should a CAP patient be escalated?", a: "Worsening dyspnoea, falling oxygen saturation, confusion, or systemic deterioration require urgent assessment for appropriate level of care — not outpatient antibiotics." },
+  { q: "Is Augmentin safe in pregnancy?", a: "Requires individual risk-benefit assessment. Always refer to the approved prescribing information — no blanket claim should be made." },
+  { q: "What drug interactions matter?", a: "Warfarin (INR monitoring), allopurinol (rash risk), and probenecid (increased amoxicillin levels) are relevant interactions." },
 ];
 
 export default function Page() {
@@ -68,7 +58,6 @@ export default function Page() {
   const [sessionState, setSessionState] = useState<"idle" | "connecting" | "active">("idle");
   const [transcript,   setTranscript]   = useState<Message[]>([]);
   const [summary,      setSummary]      = useState("");
-  const [topics,       setTopics]       = useState<string[]>([]);
   const [summarizing,  setSummarizing]  = useState(false);
   const [isMuted,      setIsMuted]      = useState(false);
   const [elapsed,      setElapsed]      = useState(0);
@@ -115,14 +104,12 @@ export default function Page() {
       startMic();
       startCamera();
       timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
-      // Unmute video — Anam puts audio+video in the same stream, browser syncs them natively
       const vid = anam.videoRef.current;
       if (vid) { vid.muted = false; vid.volume = 1.0; vid.play().catch(() => {}); }
     }
   }, [anam.isConnected, sessionState]);
 
   const startMic = async () => {
-    // Stream already obtained in handleConnect — reuse it
     const stream = streamRef.current ?? await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
@@ -131,7 +118,7 @@ export default function Page() {
 
     const ctx = new AudioContext();
     audioCtxRef.current = ctx;
-    nativeRateRef.current = ctx.sampleRate; // typically 48000
+    nativeRateRef.current = ctx.sampleRate;
 
     await ctx.audioWorklet.addModule("/audio-processor.js");
     const source = ctx.createMediaStreamSource(stream);
@@ -139,12 +126,10 @@ export default function Page() {
     workletRef.current = worklet;
 
     worklet.port.onmessage = (e: MessageEvent<Int16Array>) => {
-      // Resample from native rate (e.g. 48 kHz) down to 24 kHz for OpenAI
       const pcm24k = resampleTo(e.data, nativeRateRef.current, 24000);
       relay.sendAudio(pcm24k);
     };
 
-    // Connect source → worklet only (no destination — avoids mic-through-speaker feedback)
     source.connect(worklet);
   };
 
@@ -160,7 +145,6 @@ export default function Page() {
 
   const startCamera = async () => {
     try {
-      // Reuse stream already obtained in handleConnect if available
       const stream = cameraStreamRef.current ?? await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       cameraStreamRef.current = stream;
       if (cameraVideoRef.current) cameraVideoRef.current.srcObject = stream;
@@ -184,7 +168,6 @@ export default function Page() {
   const handleConnect = useCallback(async () => {
     setSessionState("connecting");
 
-    // Request mic permission immediately in the user gesture — before session starts
     try {
       const audioStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -197,7 +180,6 @@ export default function Page() {
       return;
     }
 
-    // Request camera permission (optional — session continues even if denied)
     try {
       const videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       cameraStreamRef.current = videoStream;
@@ -217,7 +199,6 @@ export default function Page() {
       },
     );
   }, [relay, anam, addTranscript]);
-
 
   const handleDone = useCallback(async () => {
     stopMic();
@@ -239,10 +220,8 @@ export default function Page() {
       });
       const data = await res.json();
       setSummary(data.summary || "Session complete.");
-      setTopics(data.topics || []);
     } catch {
-      setSummary("Session complete. Thank you for consulting with Sara.");
-      setTopics([]);
+      setSummary("Training session complete. Review the scoring feedback Dr. Maryam Khan provided during your detailing visit.");
     } finally {
       setSummarizing(false);
     }
@@ -251,13 +230,11 @@ export default function Page() {
   const handleRestart = useCallback(() => {
     setTranscript([]);
     setSummary("");
-    setTopics([]);
     setIsMuted(false);
     setElapsed(0);
     setScreen("consultation");
     setSessionState("idle");
   }, []);
-
 
   const toggleMute = useCallback(() => {
     if (!micTrackRef.current) return;
@@ -266,7 +243,6 @@ export default function Page() {
     setIsMuted(next);
   }, [isMuted]);
 
-  // Unmute mic only after Anam finishes playing (isSpeaking goes false)
   useEffect(() => {
     if (!anam.isSpeaking && micTrackRef.current) {
       micTrackRef.current.enabled = true;
@@ -298,26 +274,21 @@ export default function Page() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <img src="/dt-logo.png" alt="DigiTrends" className="h-8 flex-shrink-0" />
+            <img src="/gsk-new-logo.png" alt="GSK" className="h-8 flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wider leading-none mb-0.5">Knowledge Base</p>
-              <h2 className="text-lg font-bold text-gray-900 leading-none">Frequently Asked Questions</h2>
+              <h2 className="text-lg font-bold text-gray-900 leading-none">Augmentin · CAP Reference</h2>
             </div>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             {FAQS.map((faq, i) => (
               <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                <p className="text-sm font-semibold text-dt-red mb-1.5">{faq.q}</p>
+                <p className="text-sm font-semibold text-red-600 mb-1.5">{faq.q}</p>
                 <p className="text-sm text-gray-600 leading-relaxed">{faq.a}</p>
               </div>
             ))}
           </div>
-
-          <button
-            onClick={handleRestart}
-            className="w-full py-3.5 rounded-xl bg-dt-red text-white font-semibold text-sm hover:opacity-90 transition-colors"
-          >
+          <button onClick={handleRestart} className="w-full py-3.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:opacity-90 transition-colors">
             Start New Session
           </button>
         </div>
@@ -330,71 +301,43 @@ export default function Page() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col p-4 sm:p-6">
         <div className="max-w-lg mx-auto w-full flex flex-col flex-1">
-
-          {/* Header */}
           <div className="flex items-center gap-3 mb-6">
-            <img src="/dt-logo.png" alt="DigiTrends" className="h-8 flex-shrink-0" />
+            <img src="/gsk-new-logo.png" alt="GSK" className="h-8 flex-shrink-0" />
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wider leading-none mb-0.5">Session Complete</p>
               <h2 className="text-lg font-bold text-gray-900 leading-none">Consultation Summary</h2>
             </div>
           </div>
-
-          {/* Sara card */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-4">
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-              <div className="w-10 h-10 rounded-full bg-dt-red flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-bold text-sm">S</span>
+              <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-sm">M</span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Sara</p>
-                <p className="text-xs text-gray-400">DT Voice Assistant</p>
+                <p className="text-sm font-semibold text-gray-900">Dr. Maryam Khan</p>
+                <p className="text-xs text-gray-400">Consultant Physician</p>
               </div>
               <div className="ml-auto">
                 <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">Session Ended</span>
               </div>
             </div>
-
             {summarizing ? (
               <div className="flex items-center gap-2 text-gray-400 py-2">
-                <svg className="animate-spin h-4 w-4 text-dt-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
                 <span className="text-sm text-gray-500">Generating your summary…</span>
               </div>
             ) : (
-              <>
-                <p className="text-sm text-gray-700 leading-relaxed mb-4">{summary}</p>
-
-                {topics.length > 0 && (
-                  <>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Topics Covered</p>
-                    <div className="flex flex-wrap gap-2">
-                      {topics.map((t, i) => (
-                        <span key={i} className="text-xs px-3 py-1.5 rounded-full bg-red-50 text-dt-red font-medium border border-red-100">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </>
+              <p className="text-sm text-gray-700 leading-relaxed">{summary}</p>
             )}
           </div>
-
-          {/* Actions */}
           <div className="flex flex-col gap-3 mt-auto">
-            <button
-              onClick={() => setScreen("faq")}
-              className="w-full py-3.5 rounded-xl border-2 border-dt-red text-dt-red font-semibold text-sm hover:bg-red-50 transition-colors"
-            >
-              FAQs
+            <button onClick={() => setScreen("faq")} className="w-full py-3.5 rounded-xl border-2 border-red-600 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors">
+              CAP Reference
             </button>
-            <button
-              onClick={handleRestart}
-              className="w-full py-3.5 rounded-xl bg-dt-red text-white font-semibold text-sm hover:opacity-90 transition-colors"
-            >
+            <button onClick={handleRestart} className="w-full py-3.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:opacity-90 transition-colors">
               Start New Session
             </button>
           </div>
@@ -403,7 +346,7 @@ export default function Page() {
     );
   }
 
-  // ── Consultation screen — your design (index 5) ──────────────────────────
+  // ── Consultation screen ───────────────────────────────────────────────────
   return (
     <>
       <style>{`
@@ -411,15 +354,12 @@ export default function Page() {
         *{box-sizing:border-box;}
         .stage{width:100%;height:100dvh;margin:0;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;position:relative;}
 
-        /* ── TOP BAR ── */
         .topbar{flex:0 0 auto;background:#0e1626;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--edge);}
         .topbar h1{font-size:16px;font-weight:700;margin:0;letter-spacing:0.2px;color:var(--text);}
         .topbar-left{display:flex;align-items:center;gap:16px;}
 
-        /* ── VIDEO WRAP ── */
         .video-wrap{flex:1 1 auto;position:relative;padding:14px;gap:12px;display:flex;align-items:stretch;justify-content:flex-start;min-height:0;background:linear-gradient(100deg,#0b1220 0%,#10202a 55%,#163038 100%);}
 
-        /* ── MAIN AVATAR VIDEO ── */
         .main-video{position:relative;flex:1 1 0;min-width:0;border-radius:8px;overflow:hidden;background:#14181f;box-shadow:0 0 0 1px var(--edge);}
         .main-video .video-slot{position:absolute;inset:0;}
         .main-video .video-slot video{width:100%;height:100%;object-fit:contain;display:block;background:#14181f;}
@@ -427,7 +367,6 @@ export default function Page() {
         .rec-badge{position:absolute;top:14px;right:14px;background:rgba(10,14,22,0.55);color:#fff;font-size:12px;padding:4px 10px;border-radius:5px;display:flex;align-items:center;gap:6px;z-index:2;}
         .rec-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);}
 
-        /* ── DESKTOP PiP SIDEBAR ── */
         .pip-panel{flex:0 0 300px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:16px;gap:8px;}
         .pip{position:relative;width:100%;aspect-ratio:16/11;background:#14181f;border-radius:10px;border:3px solid var(--accent);overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.5),0 0 0 1px rgba(34,197,94,0.25);}
         .pip .video-slot{position:absolute;inset:0;}
@@ -435,7 +374,6 @@ export default function Page() {
         .pip .pip-mic{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;z-index:2;}
         .pip .pip-name{position:absolute;left:10px;bottom:8px;color:#fff;font-size:13px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.6);z-index:2;}
 
-        /* ── BOTTOM CONTROLS ── */
         .controls{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 22px 16px 22px;background:#0b1220;}
         .ctrl-group{display:flex;align-items:center;gap:26px;}
         .ctrl{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-dim);font-size:11px;cursor:pointer;background:none;border:none;font-family:inherit;}
@@ -449,7 +387,6 @@ export default function Page() {
         .end-btn:hover{background:#cf3a3f;}
         .end-btn:disabled{opacity:0.4;cursor:not-allowed;}
 
-        /* ── OVERLAY & INDICATORS ── */
         .start-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(11,18,32,0.88);z-index:10;gap:16px;padding:20px;}
         .start-btn{background:#22c55e;border:none;color:#06210f;padding:16px 40px;border-radius:28px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.3px;min-height:56px;width:100%;max-width:320px;}
         .start-btn:hover{background:#16a34a;}
@@ -459,44 +396,18 @@ export default function Page() {
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         .pip-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#14181f;color:var(--text-dim);font-size:12px;}
 
-        /* ── MOBILE — Zoom/Meet style ── */
         @media (max-width: 640px) {
           .topbar{padding:8px 14px;}
           .topbar h1{font-size:13px;line-height:1.3;}
-
-          /* video area: no padding, avatar fills everything */
           .video-wrap{padding:0;gap:0;}
           .main-video{border-radius:0;box-shadow:none;}
-
-          /* PiP becomes a floating overlay in top-right corner */
-          .pip-panel{
-            position:absolute;
-            top:10px;
-            right:10px;
-            width:110px;
-            flex:none;
-            padding:0;
-            justify-content:flex-start;
-            z-index:20;
-          }
-          .pip{
-            aspect-ratio:3/4;
-            border-width:2px;
-            border-radius:10px;
-            box-shadow:0 4px 16px rgba(0,0,0,0.7);
-            width:100%;
-          }
+          .pip-panel{position:absolute;top:10px;right:10px;width:110px;flex:none;padding:0;justify-content:flex-start;z-index:20;}
+          .pip{aspect-ratio:3/4;border-width:2px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.7);width:100%;}
           .pip .pip-name{font-size:11px;left:6px;bottom:6px;}
           .pip .pip-mic{width:22px;height:22px;font-size:11px;top:6px;right:6px;}
-
-          /* name tag + rec badge smaller */
           .name-tag{font-size:12px;padding:4px 10px;left:10px;bottom:10px;}
           .rec-badge{font-size:11px;padding:3px 8px;top:10px;right:10px;}
-
-          /* speaking indicator above controls */
           .speak-indicator{bottom:70px;left:10px;font-size:11px;}
-
-          /* controls: compact single row */
           .controls{padding:10px 16px 16px;gap:0;}
           .ctrl-group{gap:20px;}
           .ctrl{font-size:10px;}
@@ -523,22 +434,19 @@ export default function Page() {
         {/* VIDEO WRAP */}
         <div className="video-wrap">
 
-          {/* MAIN VIDEO — Dr. Malik avatar */}
+          {/* MAIN VIDEO — Dr. Maryam Khan avatar */}
           <div className="main-video">
             <div className="video-slot">
               <video ref={anam.videoRef} autoPlay playsInline />
             </div>
 
-            {/* REC / speaking badge */}
             <div className="rec-badge">
               <span className="rec-dot" style={{ background: isActive ? (anam.isSpeaking ? '#22c55e' : '#e5484d') : '#475569' }} />
               {isActive ? (anam.isSpeaking ? 'SPEAKING' : 'REC') : 'WAITING'}
             </div>
 
-            {/* Name tag */}
-            <div className="name-tag">Dr. Ahmed Khan</div>
+            <div className="name-tag">Dr. Maryam Khan</div>
 
-            {/* Speaking indicator */}
             {isActive && (
               <div className="speak-indicator">
                 {anam.isSpeaking
@@ -548,10 +456,9 @@ export default function Page() {
               </div>
             )}
 
-            {/* Start / connecting overlay */}
             {!isActive && (
               <div className="start-overlay">
-                <div style={{ fontSize: 14, color: '#9fb0c9', marginBottom: 4 }}>Dr. Ahmed Khan · Consultant Physician</div>
+                <div style={{ fontSize: 14, color: '#9fb0c9', marginBottom: 4 }}>Dr. Maryam Khan · Consultant Physician</div>
                 {isConnecting ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 13 }}>
                     <span className="speak-dot" /> Connecting to session…
@@ -563,17 +470,11 @@ export default function Page() {
             )}
           </div>
 
-          {/* PiP — rep camera beside avatar, no gap */}
+          {/* PiP — rep camera */}
           <div className="pip-panel"><div className="pip">
             <div className="video-slot">
-              <video
-                ref={cameraVideoRef}
-                autoPlay
-                playsInline
-                muted
-              />
+              <video ref={cameraVideoRef} autoPlay playsInline muted />
             </div>
-            {/* fallback placeholder when camera not active */}
             {!isActive && (
               <div className="pip-placeholder">
                 <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#9fb0c9" strokeWidth="1.5">
@@ -595,11 +496,9 @@ export default function Page() {
             <button className="ctrl"><span className="circle">⚙</span>Settings</button>
             <button className="ctrl active"><span className="circle">CC</span>Captions</button>
           </div>
-
           <div className="timer-block">
             <span className="sess-timer">{formatTime(elapsed)}</span>
           </div>
-
           <div className="ctrl-group">
             <button
               className={`ctrl ${isActive ? (isMuted ? 'danger' : 'active') : ''}`}
